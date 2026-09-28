@@ -52,6 +52,40 @@
     font-size: 12px;
   }
 
+  /* Brand: S_DevLabs mark + lockup in header */
+  header .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header .brand-mark {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: #000;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  header .brand-mark svg { display: block; }
+  header .brand-text { min-width: 0; }
+  header .brand-tag {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    color: var(--accent);
+    background: rgba(94, 234, 212, 0.08);
+    border: 1px solid rgba(94, 234, 212, 0.25);
+    border-radius: 10px;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+
   /* Health pill in header (click to expand popover) */
   .health-pill {
     display: inline-flex;
@@ -295,9 +329,27 @@
 <body>
 <header>
   <div class="header-main">
-    <h1>xrpl_agent_id — Live Dashboard</h1>
-    <div class="meta">
-      XRPL Testnet · W3C did:xrpl + XLS-70 Credentials
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 100 100" width="32" height="32">
+          <defs>
+            <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#5eead4"/>
+              <stop offset="100%" stop-color="#1e40af"/>
+            </linearGradient>
+          </defs>
+          <polygon points="50,5 92,28 92,72 50,95 8,72 8,28"
+                   fill="none" stroke="url(#brandGrad)" stroke-width="6" stroke-linejoin="round"/>
+          <path d="M28 32 L50 72 L72 32" fill="none" stroke="url(#brandGrad)"
+                stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>xrpl_agent_id <span class="brand-tag">by S_DevLabs</span></h1>
+        <div class="meta">
+          XRPL Testnet · W3C did:xrpl + XLS-70 Credentials
+        </div>
+      </div>
     </div>
   </div>
   <div class="health-pill" id="health-pill" title="Click for full event log">

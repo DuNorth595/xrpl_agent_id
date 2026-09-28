@@ -6,12 +6,14 @@ Public surface is intentionally small. Detailed implementation lives in submodul
 
 Core types:
     AgentIdentity — a single agent's XRPL identity (DID + keys + credentials)
+    Authority     — an issuer-side identity that can only sign CredentialCreate
     Credential    — an attestation issued by one agent to another
     DIDDocument   — W3C DID Document for an XRPL account
 """
 
 from xrpl_agent_id.identity import AgentIdentity
-from xrpl_agent_id.credential import Credential
+from xrpl_agent_id.authority import Authority
+from xrpl_agent_id.credential import Credential, CredentialType
 from xrpl_agent_id.did import (
     DIDDocument,
     NETWORK_IDS,
@@ -19,15 +21,30 @@ from xrpl_agent_id.did import (
     parse_did,
     resolve_did,
 )
+from xrpl_agent_id.network import (
+    NETWORKS,
+    NetworkEndpoint,
+    get_client,
+    get_network,
+)
 
 __version__ = "0.0.0"
 
 __all__ = [
+    # Core types
     "AgentIdentity",
+    "Authority",
     "Credential",
+    "CredentialType",
     "DIDDocument",
+    "NetworkEndpoint",
+    # DID helpers
     "NETWORK_IDS",
+    "NETWORKS",
     "did_from_account",
     "parse_did",
     "resolve_did",
+    # Network helpers
+    "get_client",
+    "get_network",
 ]

@@ -12,7 +12,7 @@ Core types:
 """
 
 from xrpl_agent_id.identity import AgentIdentity
-from xrpl_agent_id.authority import Authority
+from xrpl_agent_id.authority import Authority, VerificationResult
 from xrpl_agent_id.credential import Credential, CredentialType
 from xrpl_agent_id.did import (
     DIDDocument,
@@ -27,8 +27,13 @@ from xrpl_agent_id.network import (
     get_client,
     get_network,
 )
+from xrpl_agent_id.trust import (
+    TrustCheckResult,
+    TrustPolicy,
+    TrustRegistry,
+)
 
-__version__ = "0.0.0"
+__version__ = "0.1.0"
 
 __all__ = [
     # Core types
@@ -38,6 +43,7 @@ __all__ = [
     "CredentialType",
     "DIDDocument",
     "NetworkEndpoint",
+    "VerificationResult",
     # DID helpers
     "NETWORK_IDS",
     "NETWORKS",
@@ -47,4 +53,8 @@ __all__ = [
     # Network helpers
     "get_client",
     "get_network",
+    # Trust library
+    "TrustCheckResult",
+    "TrustPolicy",
+    "TrustRegistry",
 ]

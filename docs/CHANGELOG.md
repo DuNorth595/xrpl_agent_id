@@ -7,6 +7,40 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **`xrpl_agent_id/trust.py`** — new module: trust library layer
+  - `TrustRegistry` — composable trust policy with `.require()` and `.deny()` rules
+  - `TrustPolicy`, `TrustCheckResult` — dataclasses for rule + result representation
+  - `TrustRegistry.check(agent_did)` — one-call policy verification
+  - Returns `TrustCheckResult` with `.satisfied`, `.missing_required`, `.denied_held`, `.summary()`
+- **`Authority.verify_set(agent_did, required)`** — batch credential verification
+  - Returns `VerificationResult` with per-credential pass/fail + missing list
+- **`Authority.revoke_credential(subject, credential_type)`** — XLS-70 `CredentialDelete` wrapper
+  - Designed for use by either issuer OR subject (both can sign)
+- **Public API surface** (`xrpl_agent_id/__init__.py`):
+  - `TrustRegistry`, `TrustPolicy`, `TrustCheckResult`, `VerificationResult` exported
+- **`scripts/run_trust_scenarios.py`** — end-to-end scenario runner
+  - 11-step trust library scenario on real testnet
+  - Captures all tx hashes + verify results to `results/scenario_<ts>.json`
+- **Test coverage expansion:** 27 → 43 offline tests (16 new tests for trust library)
+- **`docs/02_testing_log.md`** — comprehensive testing log with bugs found + fixes
+- Live testnet: 6/6 live tests passing (added test_05_revoke_credential + test_06_verify_set_and_trust_registry)
+
+### Fixed
+- **`Authority.revoke_credential()` v1 design flaw**: initial implementation used a second `CredentialCreate` for revocation, but XLS-70 enforces `(issuer, subject, credential_type)` uniqueness → `tecDUPLICATE`. Rewrote to use `CredentialDelete` (XLS-70's native delete). Docstring updated to recommend `expiration`-based soft revocation for audit-trail-preserving revocation.
+- **Default revocation URI**: was too long; fixed to compact `revoke://<short-tails>` with safety fallback.
+- **`scripts/run_trust_scenarios.py`**: `.url` → `.json_rpc_url` (matches actual NetworkEndpoint attribute).
+- **Test isolation**: test_06 no longer depends on test_03 / test_05 state — issues its own fresh credential.
+
+### Known issues
+- `submit_and_wait` intermittently hits `tefPAST_SEQ` when called immediately after another test (cached `LastLedgerSequence`). Mitigated with `time.sleep(3)` at script start. Long-term fix: retry decorator on `submit_and_wait`.
+- `TrustRegistry._get_agent_credentials()` is a stub; needs `xrpl.account_objects` integration for full ledger enumeration.
+- `TrustRegistry` cache is unbounded; needs LRU eviction or TTL.
+
+## [0.1.0] - 2026-09-28
+
+Initial live-capable release. Same as [Unreleased] minus the trust library additions. 27 offline + 4 live tests passing.
+
+### Added
 - Project skeleton (LICENSE, README, pyproject.toml, package directory)
 - `xrpl_agent_id/did.py` — XLS-40d parser, W3C DID Core 1.0 compliant
   - `did_from_account()` — builds `did:xrpl:<network-id>:<address>`

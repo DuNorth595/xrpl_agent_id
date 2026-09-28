@@ -6,6 +6,20 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-09-28
+
+### Changed
+- **Public contact information migrated from personal to org** (`S_DevLabs@outlook.com`)
+  - `docs/00_executive_summary.md` and `docs/00_executive_summary.html`: contact block now reads `S_DevLabs / S_DevLabs@outlook.com`. Personal name, personal email, and personal phone removed from these user-facing surfaces.
+  - `README.md`: added `Organization: S_DevLabs (Strategic Development Labs)` and `Contact: S_DevLabs@outlook.com` rows in the header table.
+- License/copyright headers (SPDX, `pyproject.toml` `authors`) keep `Justin Douglas` as the legal author — that's the correct attribution per the project's copyright model.
+
+### Added
+- **`scripts/build_summary_pdf.py`** — single-source-of-truth builder for the executive summary PDF, reads the hand-crafted HTML directly (no pandoc dep), prints via Playwright. Use this whenever `00_executive_summary.html` is edited so the PDF stays in sync.
+
+### Fixed
+- Older Desktop snapshot PDFs (`v0.1.0`, `v0.2.0`, `v0.2.1`, `v0.2.2`) had the old contact baked in. Deleted those stale binaries — the source-of-truth MD/HTML in those folders has been redacted, and the latest snapshot's PDF is regenerated from the clean source.
+
 ## [0.2.3] - 2026-09-28
 
 ### Added

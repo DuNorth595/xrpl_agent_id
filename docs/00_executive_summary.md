@@ -4,9 +4,8 @@
 **Live on XRPL Testnet** · 49/49 tests passing (43 offline + 6 live) · MIT licensed
 
 **Contact**
-Justin Douglas
-justindoug@gmail.com
-+1 (612) 219-8861
+S_DevLabs
+S_DevLabs@outlook.com
 
 ---
 

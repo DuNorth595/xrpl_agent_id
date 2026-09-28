@@ -183,7 +183,7 @@ def test_http_handler() -> None:
         try:
             c = HTTPConnection("127.0.0.1", port, timeout=5)
             for path in ("/", "/api/summary", "/api/credentials", "/api/identities",
-                         "/api/watchlist", "/api/agent_state", "/api/health"):
+                         "/api/watchlist", "/api/agent_state", "/api/health", "/api/files"):
                 c.request("GET", path)
                 r = c.getresponse()
                 body = r.read()
@@ -201,7 +201,39 @@ def test_http_handler() -> None:
             httpd.shutdown()
 
 
+def test_files_api_lists_project() -> None:
+    """api_files() returns the project root, version, and walks all visible files."""
+    result = srv.api_files()
+    assert result["root"].endswith("XRPL_AGENT_ID")
+    assert result["version"].startswith("0.")  # whatever current version is
+    assert len(result["files"]) > 0
+    # Every result has a positive size and an absolute path
+    for f in result["files"]:
+        assert f["abs_path"].startswith("/")
+        assert f["rel_path"]
+        assert f["size_bytes"] >= 0
+        assert f["kind"] == "file"
+
+
+def test_files_api_excludes_secrets_and_artifacts() -> None:
+    """Secrets (seeds.json, .env) and build artifacts (.db, .pyc, .git/) must not leak."""
+    result = srv.api_files()
+    rel_paths = {f["rel_path"] for f in result["files"]}
+    # Build artifacts
+    assert not any(p.endswith(".pyc") for p in rel_paths)
+    assert not any(p.endswith(".db") for p in rel_paths)
+    assert not any(p.endswith(".db-shm") for p in rel_paths)
+    assert not any(p.endswith(".db-wal") for p in rel_paths)
+    # Secrets
+    assert "seeds.json" not in rel_paths
+    assert ".env" not in rel_paths
+    # VCS noise
+    assert not any(p.startswith(".git/") for p in rel_paths)
+
+
 if __name__ == "__main__":
     test_schema_and_inserts()
     test_http_handler()
+    test_files_api_lists_project()
+    test_files_api_excludes_secrets_and_artifacts()
     print("\nAll dashboard smoke tests passed.")

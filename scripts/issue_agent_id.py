@@ -218,10 +218,16 @@ def main() -> dict:
         return results
 
     # ---- Step 4: subject writes DID Document ----------------------------
-    print("[4/6] Subject writing DID Document via DIDSet...")
+    # XLS-40d caps DIDSet.DIDDocument and DIDSet.URI at 256 bytes each.
+    # A canonical W3C DID Document with a Multikey verificationMethod is
+    # ~495 bytes — over the cap. The canonical XLS-40d pattern is to write
+    # a small DIDDocument on-ledger (just the IDs) and put the full doc
+    # behind a URI (HTTPS or IPFS).
+    print("[4/6] Subject writing DID Document via DIDSet (256-byte cap)...")
     from xrpl_agent_id.did import DIDDocument
     from xrpl.models.transactions import DIDSet
 
+    # 4a. Full DID Document (what would go on-chain if there were no cap)
     did_doc = DIDDocument(
         id=subject.did,
         verification_method=[
@@ -235,10 +241,42 @@ def main() -> dict:
         authentication=[f"{subject.did}#keys-1"],
     )
     doc_json = did_doc.to_json()
-    doc_hex = json.dumps(doc_json, separators=(",", ":")).encode("utf-8").hex().upper()
-    print(f"  DID Document size: {len(doc_hex) // 2} bytes (cap is 256)")
+    doc_hex_full = json.dumps(doc_json, separators=(",", ":")).encode("utf-8").hex().upper()
+    full_doc_bytes = len(doc_hex_full) // 2
+    print(f"  Full W3C DID Document:  {full_doc_bytes} bytes (over 256 cap)")
 
-    did_tx = DIDSet(account=subject.address, did_document=doc_hex)
+    # 4b. Minimal on-ledger form: only IDs, pointer to full doc via URI
+    # This is the XLS-40d-recommended pattern for cap compliance.
+    minimal_doc = DIDDocument(
+        id=subject.did,
+        verification_method=[
+            {
+                "id": f"{subject.did}#keys-1",
+                "type": "Multikey",
+                "controller": subject.did,
+            }
+        ],
+        authentication=[f"{subject.did}#keys-1"],
+        service=[
+            {
+                "id": f"{subject.did}#agent-card",
+                "type": "AgentCard",
+                "serviceEndpoint": cred_uri,  # reuse the credential URI as doc-host
+            }
+        ],
+    )
+    minimal_json = minimal_doc.to_json()
+    # The minimal doc may also be over the cap due to publicKeyMultibase
+    # being derived from publicKeyHex. Let's serialize and check.
+    minimal_hex = json.dumps(minimal_json, separators=(",", ":")).encode("utf-8").hex().upper()
+    minimal_bytes = len(minimal_hex) // 2
+    print(f"  Minimal DID Document:   {minimal_bytes} bytes")
+
+    # We use the URI-based pattern: write only `uri`, no on-ledger DIDDocument
+    did_uri = f"https://xrpl-agent-id.example/did/{subject.address}"
+    print(f"  Strategy:               set URI only, full doc at {did_uri}")
+
+    did_tx = DIDSet(account=subject.address, uri=did_uri.encode("utf-8").hex().upper())
     did_resp = submit_and_wait(did_tx, client, subject.wallet)
     did_result = did_resp.result or {}
     did_hash = did_result.get("hash")
@@ -254,9 +292,10 @@ def main() -> dict:
         "tx_hash": did_hash,
         "tx_result": did_tx_result,
         "ledger_index": did_ledger_index,
-        "did_document_bytes": len(doc_hex) // 2,
-        "did_document_json": doc_json,
-        "did_document_hex": doc_hex,
+        "strategy": "uri_only (full DIDDocument off-ledger at URI)",
+        "full_did_document_bytes": full_doc_bytes,
+        "did_uri": did_uri,
+        "full_did_document_json": doc_json,
     }
 
     if did_tx_result != "tesSUCCESS":

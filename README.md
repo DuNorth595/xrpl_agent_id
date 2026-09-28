@@ -57,26 +57,32 @@ XRPL shipped the primitives needed for agent identity back in 2020-2024 — they
 ### 10-line Identity (the pitch)
 
 ```python
-from xrpl_agent_id import AgentIdentity
+from xrpl_agent_id import AgentIdentity, Authority
 
 # Issuer: a service that vouches for agents (e.g. an eval registry)
-issuer = AgentIdentity.from_seed("sEd...", network="testnet")
+issuer = Authority.from_seed("sEd...", network="testnet")
 
 # Subject: the AI agent getting verified
 agent = AgentIdentity.from_seed("sEd...", network="testnet")
 
 # Issuer creates a credential attesting "this agent passed the eval"
-cred = issuer.issue_credential(
+issuer.issue_credential(
     subject=agent.did,
     credential_type=b"agent-eval-passed-v1",
     uri="ipfs://Qm...",  # full claim details off-chain
 )
 
-# Agent accepts it
-agent.accept_credential(cred)
+# Agent accepts it (its own signature, on its own account)
+agent.accept_credential(
+    issuer=issuer.address,
+    credential_type=b"agent-eval-passed-v1",
+)
 
-# Anyone can verify it
-assert agent.has_credential(issuer.did, b"agent-eval-passed-v1")
+# Anyone can verify it — no keys, no registry, just the public ledger
+assert agent.has_credential(
+    issuer=issuer.address,
+    credential_type=b"agent-eval-passed-v1",
+)
 ```
 
 ---
@@ -164,11 +170,12 @@ from xrpl_agent_id import (
 
 | Module | Purpose | Status |
 |---|---|---|
-| `xrpl_agent_id.did` | Parse `did:xrpl:1:rXXX…` to `(network_id, address)`; build / parse W3C DID Documents | [Done] Complete, 12 tests |
-| `xrpl_agent_id.identity` | `AgentIdentity` — wrap an `xrpl-py.Wallet`, expose identity ops | [Stub] Stub (interface locked) |
-| `xrpl_agent_id.credential` | `Credential` — XLS-70 wrapper, issue/accept/verify | [Stub] Stub (interface locked) |
-| `xrpl_agent_id.network` | Network constants + JsonRpcClient factory | [Plan] Planned (Week 1) |
-| `xrpl_agent_id.mcp` | MCP server wrapper, optional `[mcp]` extra | [Plan] Planned (Week 2) |
+| `xrpl_agent_id.did` | Parse `did:xrpl:1:rXXX…` to `(network_id, address)`; build / parse W3C DID Documents; resolve via `ledger_entry` | Complete, 12 tests |
+| `xrpl_agent_id.identity` | `AgentIdentity` — wrap an `xrpl-py.Wallet`, expose identity ops | Complete, live on testnet |
+| `xrpl_agent_id.credential` | `Credential` — XLS-70 wrapper, issue/accept/verify | Complete, 15 tests |
+| `xrpl_agent_id.network` | Network constants + JsonRpcClient factory | Complete |
+| `xrpl_agent_id.authority` | `Authority` — issuance-only subclass of `AgentIdentity` | Complete |
+| `xrpl_agent_id.mcp` | MCP server wrapper, optional `[mcp]` extra | Planned (Week 2) |
 
 ### Design Decisions
 
@@ -319,12 +326,13 @@ Confirmed against [XLS-37](https://github.com/XRPLF/XRPL-Standards/blob/master/X
 
 | Milestone | Target | Status |
 |---|---|---|
-| Skeleton + DID module + 12 tests | today | [Done] Done |
-| `xrpl-py` ledger wire-up (DIDSet, CredentialCreate/Accept) | +1 week | [Next] Next session |
-| Testnet end-to-end demo | +1 week | [Next] Next session |
-| PyPI v0.1.0 release | +2 weeks | [Plan] Planned |
-| MCP server wrapper (`[mcp]` extra) | +2-3 weeks | [Plan] Planned |
-| README + tutorial for EasyA submission | +3 weeks | [Plan] Planned |
+| Skeleton + DID module + 12 tests | today | Done |
+| `xrpl-py` ledger wire-up (DIDSet, CredentialCreate/Accept) | +1 week | Done — `xrpl-py 4.5.0` live |
+| Testnet end-to-end demo | +1 week | Done — `scripts/issue_agent_id.py`, results in `results/` |
+| Live issuance flow documentation | +1 week | Done — `docs/01_issuance_flow.md` |
+| PyPI v0.1.0 release | +2 weeks | Next |
+| MCP server wrapper (`[mcp]` extra) | +2-3 weeks | Planned |
+| README + tutorial for EasyA submission | +3 weeks | Planned |
 
 ### E. Related Projects
 

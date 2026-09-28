@@ -50,3 +50,7 @@ Thumbs.db
 
 # Build PDF script is checked in (regenerable)
 # build_pdf.py — kept
+*.db
+*.db-shm
+*.db-wal
+

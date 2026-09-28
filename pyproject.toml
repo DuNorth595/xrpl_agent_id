@@ -1,6 +1,6 @@
 [project]
 name = "xrpl_agent_id"
-version = "0.0.0"
+version = "0.1.0"
 description = "Identity for AI agents on the XRP Ledger — W3C did:xrpl + XLS-70 Credentials"
 requires-python = ">=3.9"
 license = {text = "MIT"}
@@ -8,7 +8,7 @@ authors = [{name = "Justin Douglas"}]
 readme = "README.md"
 keywords = ["xrpl", "did", "credentials", "agent", "identity", "xls-40", "xls-70"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",

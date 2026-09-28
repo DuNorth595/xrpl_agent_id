@@ -28,6 +28,7 @@ DEFAULT_DB = Path.home() / "Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID/xrpl_agen
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8768
 HTML_PATH = Path(__file__).parent / "templates" / "index.html"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]  # .../XRPL_AGENT_ID/
 
 
 # -----------------------------------------------------------------------
@@ -131,8 +132,81 @@ def api_agent_state(conn: sqlite3.Connection) -> dict:
 
 
 # -----------------------------------------------------------------------
-# HTTP handler
+# Project file listing
 # -----------------------------------------------------------------------
+
+# Files / dirs we never surface (build artifacts, caches, secrets, db)
+_EXCLUDE_DIR_NAMES = {
+    "__pycache__", ".git", ".pytest_cache", "node_modules", "build", "dist",
+    ".venv", "venv", ".mypy_cache", ".ruff_cache", ".DS_Store",
+}
+_EXCLUDE_FILE_SUFFIXES = {".pyc", ".pyo", ".db", ".db-journal"}
+_EXCLUDE_FILE_SUFFIX_PARTS = {".db-shm", ".db-wal"}  # SQLite WAL-mode sidecars
+_EXCLUDE_FILE_NAMES = {"seeds.json", ".env", ".env.local"}
+
+
+def _walk_project(root: Path) -> list[dict]:
+    """Walk PROJECT_ROOT, return [{rel_path, abs_path, size_bytes, kind}]."""
+    rows: list[dict] = []
+    if not root.exists():
+        return rows
+    for p in sorted(root.rglob("*")):
+        if any(part in _EXCLUDE_DIR_NAMES for part in p.relative_to(root).parts):
+            continue
+        if p.is_dir():
+            continue
+        if p.suffix in _EXCLUDE_FILE_SUFFIXES:
+            continue
+        if any(p.name.endswith(s) for s in _EXCLUDE_FILE_SUFFIX_PARTS):
+            continue
+        if p.name in _EXCLUDE_FILE_NAMES:
+            continue
+        try:
+            rel = p.relative_to(root).as_posix()
+            size = p.stat().st_size
+        except OSError:
+            continue
+        rows.append({
+            "rel_path": rel,
+            "abs_path": str(p),
+            "size_bytes": size,
+            "kind": "file",
+        })
+    return rows
+
+
+def _pkg_version() -> str:
+    """Read xrpl_agent_id.__version__ without importing the whole package.
+
+    The package's __init__ pulls in xrpl-py which can be slow; read it raw.
+    """
+    try:
+        init = (PROJECT_ROOT / "xrpl_agent_id" / "__init__.py").read_text()
+        for line in init.splitlines():
+            if line.startswith("__version__"):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return "unknown"
+
+
+def api_files() -> dict:
+    """List every file in the project tree (for the dashboard 'Project Files' panel).
+
+    Surfacing paths lets users jump straight from the dashboard to the source
+    without remembering the project layout.
+    """
+    return {
+        "root": str(PROJECT_ROOT),
+        "version": _pkg_version(),
+        "files": _walk_project(PROJECT_ROOT),
+        "now": int(time.time()),
+    }
+
+
+# -----------------------------------------------------------------------
+# HTTP handler
+# ---------------------------------------------------------------------------
 
 class DashboardHandler(BaseHTTPRequestHandler):
     server_version = "xrpl_agent_id_dashboard/0.1.0"
@@ -202,6 +276,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return self._send_json({"watchlist": api_watchlist(conn)})
             if path == "/api/agent_state":
                 return self._send_json(api_agent_state(conn))
+            if path == "/api/files":
+                return self._send_json(api_files())
             if path == "/api/health":
                 limit = int(qs.get("limit", ["25"])[0])
                 return self._send_json({"events": api_health(conn, limit=limit)})

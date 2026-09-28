@@ -6,6 +6,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-28
+
+### Added
+- **Dashboard "Project Files" panel** — exposes the on-disk project tree to the UI
+  - New `/api/files` endpoint walks `PROJECT_ROOT`, returns 52 files (no `.db`, `.pyc`, sidecars, secrets)
+  - Grouped, collapsible display: `xrpl_agent_id/` (15) · `tests/` (6) · `scripts/` (3) · `docs/` (8) · `results/` (3) · root files (17)
+  - Each file has a "open" link → `file://` URL → opens in Finder
+  - Refreshes once on load + every 60s (files change rarely)
+- **`api_files()`, `_walk_project()`, `_pkg_version()`** — pure server-side helpers, no I/O outside the project tree
+- **2 new offline tests** (`test_files_api_lists_project`, `test_files_api_excludes_secrets_and_artifacts`) — 45 → 47 tests passing
+
+### Changed
+- `xrpl_agent_id/__version__` bumped to `0.2.1`
+
+## [0.2.0] - 2026-09-28 (build-out #2)
+
 ### Added
 - **`xrpl_agent_id/dashboard/`** — live agent-ID dashboard (stdlib-only HTTP)
   - `dashboard/db.py` — SQLite schema (identity_events, credential_events, watchlist, monitor_events)
@@ -13,19 +29,6 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `dashboard/server.py` — stdlib HTTP server with JSON API (`/api/summary`, `/api/credentials`, `/api/identities`, `/api/watchlist`, `/api/agent_state`, `/api/health`)
   - `dashboard/templates/index.html` + `dashboard.js` — single-page dark-theme UI, polled every 2s
   - `dashboard/backfill.py` — seeds DB from existing `results/scenario_*.json` files
-  - **6 API endpoints, 1 watcher, 1 server, 1 backfill tool, 1 HTML/JS dashboard**
-- **`scripts/sync_to_desktop.py`** — mirrors LIFE_MEMORY project to `~/Desktop/XRPL_AGENT_ID/<version>/` per version (read-only Desktop archive)
-- **Test coverage expansion:** 43 → 45 offline tests (+2 dashboard smoke tests)
-- **`docs/03_dashboard.md`** — dashboard usage guide
-
-### Known issues
-- `submit_and_wait` intermittently hits `tefPAST_SEQ` when called immediately after another test (cached `LastLedgerSequence`). Mitigated with `time.sleep(3)` at script start. Long-term fix: retry decorator on `submit_and_wait`.
-- `TrustRegistry._get_agent_credentials()` is a stub; needs `xrpl.account_objects` integration for full ledger enumeration.
-- `TrustRegistry` cache is unbounded; needs LRU eviction or TTL.
-
-## [0.2.0] - 2026-09-28 (build-out #2)
-
-### Added
 - **`xrpl_agent_id/trust.py`** — new module: trust library layer
   - `TrustRegistry` — composable trust policy with `.require()` and `.deny()` rules
   - `TrustPolicy`, `TrustCheckResult` — dataclasses for rule + result representation
@@ -34,19 +37,17 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`Authority.verify_set(agent_did, required)`** — batch credential verification
   - Returns `VerificationResult` with per-credential pass/fail + missing list
 - **`Authority.revoke_credential(subject, credential_type)`** — XLS-70 `CredentialDelete` wrapper
-  - Designed for use by either issuer OR subject (both can sign)
 - **Public API surface** (`xrpl_agent_id/__init__.py`):
   - `TrustRegistry`, `TrustPolicy`, `TrustCheckResult`, `VerificationResult` exported
-- **`scripts/run_trust_scenarios.py`** — end-to-end scenario runner
-
-  - 11-step trust library scenario on real testnet
-  - Captures all tx hashes + verify results to `results/scenario_<ts>.json`
-- **Test coverage expansion:** 27 → 43 offline tests (16 new tests for trust library)
+- **`scripts/run_trust_scenarios.py`** — 11-step trust library scenario on real testnet
+- **`scripts/sync_to_desktop.py`** — mirrors LIFE_MEMORY project to `~/Desktop/XRPL_AGENT_ID/<version>/` per version (read-only Desktop archive)
+- **Test coverage expansion:** 27 → 45 offline tests (16 trust + 2 dashboard)
 - **`docs/02_testing_log.md`** — comprehensive testing log with bugs found + fixes
-- Live testnet: 6/6 live tests passing (added test_05_revoke_credential + test_06_verify_set_and_trust_registry)
+- **`docs/03_dashboard.md`** — dashboard usage guide
+- Live testnet: 6/6 live tests passing
 
 ### Fixed
-- **`Authority.revoke_credential()` v1 design flaw**: initial implementation used a second `CredentialCreate` for revocation, but XLS-70 enforces `(issuer, subject, credential_type)` uniqueness → `tecDUPLICATE`. Rewrote to use `CredentialDelete` (XLS-70's native delete). Docstring updated to recommend `expiration`-based soft revocation for audit-trail-preserving revocation.
+- **`Authority.revoke_credential()` v1 design flaw**: initial implementation used a second `CredentialCreate` for revocation, but XLS-70 enforces `(issuer, subject, credential_type)` uniqueness → `tecDUPLICATE`. Rewrote to use `CredentialDelete` (XLS-70's native delete).
 - **Default revocation URI**: was too long; fixed to compact `revoke://<short-tails>` with safety fallback.
 - **`scripts/run_trust_scenarios.py`**: `.url` → `.json_rpc_url` (matches actual NetworkEndpoint attribute).
 - **Test isolation**: test_06 no longer depends on test_03 / test_05 state — issues its own fresh credential.

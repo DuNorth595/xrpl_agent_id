@@ -174,6 +174,71 @@ async function refresh() {
   }
 }
 
+// Render the "Project files" tree from /api/files.
+// Files change rarely (not per-tx), so fetch once on load + every 60s.
+async function refreshFileTree() {
+  try {
+    const data = await getJSON("/api/files");
+    const rootEl = $("proj-root");
+    rootEl.innerHTML = `<strong>v${data.version}</strong> · ${data.root}`;
+
+    const tree = $("file-tree");
+    if (!data.files || data.files.length === 0) {
+      tree.innerHTML = '<div class="empty">No files found.</div>';
+      return;
+    }
+
+    // Group by top-level dir
+    const groups = new Map();
+    for (const f of data.files) {
+      const parts = f.rel_path.split("/");
+      const top = parts.length > 1 ? parts[0] : "(root)";
+      if (!groups.has(top)) groups.set(top, []);
+      groups.get(top).push(f);
+    }
+
+    // Stable ordering: package/ code first, then tests/scripts/docs/etc.
+    const ORDER = [
+      "xrpl_agent_id", "tests", "scripts", "docs",
+      "results", "build", "dist", ".gitignore", "LICENSE",
+      "pyproject.toml", "README.md", "CHANGELOG.md",
+    ];
+    const sortedTops = [...groups.keys()].sort((a, b) => {
+      const ai = ORDER.indexOf(a), bi = ORDER.indexOf(b);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+
+    let html = "";
+    for (const top of sortedTops) {
+      const files = groups.get(top);
+      // Highlight common code/test/docs dirs
+      const isImportant = ["xrpl_agent_id", "tests", "scripts", "docs"].includes(top);
+      const openAttr = isImportant ? " open" : "";
+      html += `<details${openAttr}><summary>${top}/ <span class="muted">(${files.length})</span></summary><ul>`;
+      for (const f of files) {
+        const leaf = f.rel_path.split("/").slice(1).join("/") || f.rel_path;
+        const kb = (f.size_bytes / 1024).toFixed(1);
+        const revealUrl = `file://${f.abs_path}`;
+        html += `<li>
+          <span class="name" title="${f.rel_path}">${leaf}</span>
+          <span class="size">${kb} KB</span>
+          <a class="reveal" href="${revealUrl}" target="_blank" title="Open in Finder">open</a>
+        </li>`;
+      }
+      html += `</ul></details>`;
+    }
+    tree.innerHTML = html;
+  } catch (e) {
+    $("file-tree").innerHTML = `<div class="empty">Could not load file tree: ${e.message || e}</div>`;
+  }
+}
+
+refreshFileTree();
+setInterval(refreshFileTree, 60000);
+
 // Stale-state warning: if no successful refresh in 30s, mark connection bad
 setInterval(() => {
   if (lastSuccessfulFetch && Date.now() / 1000 - lastSuccessfulFetch > 30) {

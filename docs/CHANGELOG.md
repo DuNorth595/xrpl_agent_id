@@ -6,6 +6,26 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-28
+
+### Added
+- **Three-column "Tracked agents" layout** — Subject / Issuer / Evaluator as separate side-by-side columns
+  - Each column is a `col-4` panel with color-coded heading (Subject teal, Issuer purple, Evaluator amber)
+  - Agents are bucketed by `role` in the watchlist (`subject`, `issuer`, `evaluator`)
+  - Empty columns show "No <role> watched." instead of the whole panel going blank
+- **Connection health moved to header** as a clickable pill
+  - Pill shows status dot + `connected · N events` + secondary count `M events` (events buffered)
+  - Click expands a dropdown popover with the full event log (When / Event table)
+  - × close button + click-outside-to-dismiss
+
+### Changed
+- **Watchlist role values** renamed for clarity: `agent` → `subject` (the agent being verified). Evaluator gets its own role value rather than being aliased as `issuer` with a label.
+- `backfill.py` seeds the watchlist with the new role names so re-running it stays consistent.
+- `xrpl_agent_id/__version__` bumped to `0.2.2`
+
+### Fixed
+- Live DB row mismatches: `rhuboR2n…` (Subject) was incorrectly `role="agent"`, `rEmcSP…` (Evaluator) was `role="issuer"` with label "Evaluator". Now correctly `subject` and `evaluator`.
+
 ## [0.2.1] - 2026-09-28
 
 ### Added

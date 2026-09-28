@@ -53,10 +53,13 @@ def backfill_scenario(conn, scenario_path: Path) -> dict:
     now = _now()
 
     # Seed watchlist with all known parties from this scenario
+    # Roles: subject (agent whose identity is being verified),
+    #        issuer (issues agent_id credentials),
+    #        evaluator (issues eval credentials like eval_passed_v1)
     for addr, role, label in [
-        (subject_addr, "agent", "Subject"),
+        (subject_addr, "subject", "Subject"),
         (issuer_addr, "issuer", "Issuer"),
-        (evaluator_addr, "issuer", "Evaluator"),
+        (evaluator_addr, "evaluator", "Evaluator"),
     ]:
         if addr:
             db.upsert_watch(conn, address=addr, role=role, label=label, added_at=now)

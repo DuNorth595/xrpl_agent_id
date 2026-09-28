@@ -1,7 +1,7 @@
 # xrpl_agent_id — Executive Summary
 
 **Identity & Trust** · XRP Ledger (XLS-70 Credentials + XLS-40d DIDs)
-**Live on XRPL Testnet** · 31/31 tests passing · MIT licensed
+**Live on XRPL Testnet** · 49/49 tests passing (43 offline + 6 live) · MIT licensed
 
 **Contact**
 Justin Douglas
@@ -40,7 +40,7 @@ Verifiers query the ledger. They see the credential, the issuer, the timestamp, 
 - **CredentialAccept:** `580B8CD7…243A` (ledger 21123062)
 - **DIDSet:** `A230469E…A3B3` (ledger 21123064)
 
-**Library state:** Full Python package, MIT licensed. **27 offline tests passing, 4 live integration tests passing.** Ergonomic API: `AgentIdentity.from_seed()`, `issuer.issue_credential()`, `agent.has_credential()`, `resolve_did()`.
+**Library state:** Full Python package, MIT licensed. **43 offline + 6 live integration tests passing (49/49 total).** Ergonomic API: `AgentIdentity.from_seed()`, `issuer.issue_credential()`, `agent.has_credential()`, `resolve_did()`, plus trust library: `TrustRegistry.require()/deny()/check()`.
 
 ## Why XRPL
 

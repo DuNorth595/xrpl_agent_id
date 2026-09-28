@@ -1,0 +1,111 @@
+{
+  "started_at": "2026-09-28T17:36:59.904060+00:00",
+  "network": {
+    "name": "testnet",
+    "network_id": 2,
+    "json_rpc_url": "https://s.altnet.rippletest.net:51234"
+  },
+  "subject": {
+    "address": "rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf",
+    "did": "did:xrpl:2:rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf",
+    "public_key": "ED2D44C0934C45774CDB0624714B59424E13A35B263D7A3EC8B42680FEBE29EB80"
+  },
+  "issuer": {
+    "address": "rHDfNdLUEd7tBXZCaUuuK5wMcKzhtpNDBU",
+    "did": "did:xrpl:2:rHDfNdLUEd7tBXZCaUuuK5wMcKzhtpNDBU",
+    "public_key": "ED951C6602A89FC5297CC1D989ED03627A0FF8F0BD2667D00E076FD4991029D94C"
+  },
+  "steps": {
+    "step_2_credential_create": {
+      "tx_hash": "3C03A3E98889CB707237D5892A54E8938DB2A49C27A3BDCE32ECDC93EF2959E7",
+      "tx_result": "tesSUCCESS",
+      "ledger_index": 21123060,
+      "credential_type_hex": "6167656E745F6964656E746974795F7631",
+      "uri": "ipfs://bafkreigh2akisc3d4dh5d4kpqj3u4w4k4k4k4k4k4k4k4k4k4k4k4k4k4k",
+      "fields": {
+        "subject": "rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf",
+        "credential_type": "6167656E745F6964656E746974795F7631",
+        "uri": "697066733A2F2F6261666B726569676832616B69736333643464683564346B70716A33753477346B346B346B346B346B346B346B346B346B346B346B346B346B346B"
+      },
+      "tx_json": {
+        "Account": "rHDfNdLUEd7tBXZCaUuuK5wMcKzhtpNDBU",
+        "TransactionType": "CredentialCreate",
+        "SigningPubKey": "",
+        "Subject": "rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf",
+        "CredentialType": "6167656E745F6964656E746974795F7631",
+        "URI": "697066733A2F2F6261666B726569676832616B69736333643464683564346B70716A33753477346B346B346B346B346B346B346B346B346B346B346B346B346B346B"
+      }
+    },
+    "step_3_credential_accept": {
+      "tx_hash": "580B8CD7BF932A5EB241A1C9956BF777A0A28AC85D3FB9DC9983D5929BC2243A",
+      "tx_result": "tesSUCCESS",
+      "ledger_index": 21123062
+    },
+    "step_4_did_set": {
+      "tx_hash": "A230469E469496CF1811C9F1279E9D5F2058AAE9890730020CC2A9EC1098A3B3",
+      "tx_result": "tesSUCCESS",
+      "ledger_index": 21123064,
+      "strategy": "uri_only (full DIDDocument off-ledger at URI)",
+      "full_did_document_bytes": 495,
+      "did_uri": "https://xrpl-agent-id.example/did/rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf",
+      "full_did_document_json": {
+        "@context": [
+          "https://www.w3.org/ns/did/v1",
+          "https://w3id.org/security/multikey/v1"
+        ],
+        "id": "did:xrpl:2:rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf",
+        "verificationMethod": [
+          {
+            "id": "did:xrpl:2:rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf#keys-1",
+            "type": "Multikey",
+            "controller": "did:xrpl:2:rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf",
+            "publicKeyMultibase": "zQecrmNBRZbkZ5xYdNAYLDPBcHnUtFpzigEZCPVmE3mSyTBq9"
+          }
+        ],
+        "authentication": [
+          "did:xrpl:2:rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf#keys-1"
+        ],
+        "service": [],
+        "alsoKnownAs": [],
+        "controller": []
+      }
+    },
+    "step_5a_resolve_did": {
+      "method": "ledger_entry(did=<account>)",
+      "account": "rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf",
+      "node": {
+        "Account": "rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf",
+        "Flags": 0,
+        "LedgerEntryType": "DID",
+        "OwnerNode": "0",
+        "PreviousTxnID": "A230469E469496CF1811C9F1279E9D5F2058AAE9890730020CC2A9EC1098A3B3",
+        "PreviousTxnLgrSeq": 21123064,
+        "URI": "68747470733A2F2F7872706C2D6167656E742D69642E6578616D706C652F6469642F72504E4741794B6F77427274706265566A7A446B484734754A424B64563171336366",
+        "index": "C7852309CBC05C2906DACBBED98D8D4DFBAE3B7A7569213C2258C8E507ECA2C3"
+      }
+    },
+    "step_5b_verify_credential": {
+      "method": "ledger_entry(credential={subject, issuer, credential_type})",
+      "params": {
+        "subject": "rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf",
+        "issuer": "rHDfNdLUEd7tBXZCaUuuK5wMcKzhtpNDBU",
+        "credential_type": "6167656E745F6964656E746974795F7631"
+      },
+      "node": {
+        "CredentialType": "6167656E745F6964656E746974795F7631",
+        "Flags": 65536,
+        "Issuer": "rHDfNdLUEd7tBXZCaUuuK5wMcKzhtpNDBU",
+        "IssuerNode": "0",
+        "LedgerEntryType": "Credential",
+        "PreviousTxnID": "580B8CD7BF932A5EB241A1C9956BF777A0A28AC85D3FB9DC9983D5929BC2243A",
+        "PreviousTxnLgrSeq": 21123062,
+        "Subject": "rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf",
+        "SubjectNode": "0",
+        "URI": "697066733A2F2F6261666B726569676832616B69736333643464683564346B70716A33753477346B346B346B346B346B346B346B346B346B346B346B346B346B346B",
+        "index": "5991D51E513B2686862DF3D4320455D03325950E87BDFAB0829B0C87C09E629A"
+      }
+    }
+  },
+  "ended_at": "2026-09-28T17:37:24.794662+00:00",
+  "status": "complete"
+}

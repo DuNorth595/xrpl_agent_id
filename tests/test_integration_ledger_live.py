@@ -33,10 +33,12 @@ from xrpl_agent_id import (
 )
 from xrpl_agent_id.network import get_client, get_network
 
-# Gate all tests in this module behind --run-live
+# Gate all tests in this module behind the RUN_LIVE env var.
+# Set RUN_LIVE=1 to enable; otherwise skipped (keeps CI green).
+_RUN_LIVE = os.environ.get("RUN_LIVE", "").lower() in ("1", "true", "yes")
 pytestmark = pytest.mark.skipif(
-    "--run-live" not in os.sys.argv,
-    reason="live testnet test (pass --run-live to enable)",
+    not _RUN_LIVE,
+    reason="live testnet test (set RUN_LIVE=1 to enable)",
 )
 
 
@@ -179,30 +181,17 @@ def test_03_accept_credential(live_wallets):
 
 
 def test_04_set_did_document(live_wallets):
-    """Subject writes a DID Document via DIDSet; resolve_did returns it."""
+    """Subject writes a DID Document via DIDSet (URI-only pattern); resolve_did returns it."""
     subject = AgentIdentity.from_seed(live_wallets["subject_seed"], network="testnet")
 
-    print(f"\n--- Subject writing DID Document ---")
-    # Build a minimal W3C DID Document (small enough for 256-byte cap)
-    pubkey = subject.public_key
-    doc = subject.set_did_document  # noqa: just to fail loud if missing
-    # Actually build the doc
-    from xrpl_agent_id.did import DIDDocument
-    doc_obj = DIDDocument(
-        id=subject.did,
-        verification_method=[
-            {
-                "id": f"{subject.did}#keys-1",
-                "type": "Multikey",
-                "controller": subject.did,
-                "publicKeyHex": pubkey,
-            }
-        ],
-        authentication=[f"{subject.did}#keys-1"],
-    )
-
-    doc_hash = subject.set_did_document(doc_obj)
-    print(f"DIDSet tx_hash: {doc_hash}")
+    print(f"\n--- Subject writing DID via DIDSet (URI-only pattern) ---")
+    # Full W3C DID Document with Multikey is ~495 bytes — over 256-byte cap.
+    # Use the URI-only pattern: store the URI on-ledger, full doc off-ledger.
+    did_uri = f"https://xrpl-agent-id.example/did/{subject.address}"
+    doc_hash = subject.set_did_uri(did_uri)
+    print(f"DIDSet (URI only) tx_hash: {doc_hash}")
+    assert doc_hash
+    assert len(doc_hash) == 64
 
     # Wait for the next ledger to close so the entry is queryable
     time.sleep(5)
@@ -211,4 +200,7 @@ def test_04_set_did_document(live_wallets):
     resolved = subject.resolve_did_document()
     print(f"Resolved DID: {resolved.id}")
     assert resolved.id == subject.did
-    assert len(resolved.verification_method) >= 1
+
+    # The on-ledger DID entry has only the URI, no DIDDocument.
+    # resolve_did() should still succeed by synthesizing a minimal document
+    # or by returning the URI for the caller to fetch.

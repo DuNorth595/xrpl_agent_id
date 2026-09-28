@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Virtual envs
+venv/
+.venv/
+env/
+
+# Secrets — testnet keys MUST NEVER be committed
+testnet_keys/
+*.secret
+seeds.json
+
+# PDF / build artifacts (regenerable from README.md)
+xrpl_agent_id_README.pdf
+xrpl_agent_id_README.html
+xrpl_agent_id_README_via_pandoc.html
+_cover.html
+_footer.html
+_print_css.html
+
+# Preview screenshots from PDF build
+preview_*.png
+
+# IDE / editor
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+
+# Logs
+*.log
+
+# Build PDF script is checked in (regenerable)
+# build_pdf.py — kept

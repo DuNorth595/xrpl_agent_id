@@ -16,6 +16,8 @@
 **Package:** `xrpl_agent_id`
 **Version:** 0.2.0 (beta)
 **Author:** Justin Douglas
+**Organization:** S_DevLabs (Strategic Development Labs)
+**Contact:** S_DevLabs@outlook.com
 **License:** MIT
 **Python:** ≥ 3.9
 **Dependencies:** `xrpl-py` ≥ 4.5.0

@@ -232,7 +232,7 @@ COVER_HTML = """
 # HTML inserted at the bottom of <body> — footer line
 FOOTER_HTML = """
 <div class="footer">
-  xrpl_agent_id v0.0.0 — pre-alpha — generated from README.md
+  xrpl_agent_id v0.1.0 — beta — generated from README.md
 </div>
 """
 

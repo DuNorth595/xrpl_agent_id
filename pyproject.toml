@@ -1,0 +1,56 @@
+[project]
+name = "xrpl_agent_id"
+version = "0.0.0"
+description = "Identity for AI agents on the XRP Ledger — W3C did:xrpl + XLS-70 Credentials"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "Justin Douglas"}]
+readme = "README.md"
+keywords = ["xrpl", "did", "credentials", "agent", "identity", "xls-40", "xls-70"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "xrpl-py>=4.5.0",
+]
+
+[project.optional-dependencies]
+# Install with: pip install xrpl_agent_id[mcp]
+# Adds the MCP server wrapper so LLM agents can call identity operations
+# directly through Claude Desktop, Cursor, or any MCP-compatible host.
+mcp = [
+    "mcp>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/DuNorth595/xrpl_agent_id"
+Issues = "https://github.com/DuNorth595/xrpl_agent_id/issues"
+
+[project.scripts]
+# `python -m xrpl_agent_id` — quick smoke test of the package layout
+xrpl-agent-id-info = "xrpl_agent_id.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["xrpl_agent_id"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

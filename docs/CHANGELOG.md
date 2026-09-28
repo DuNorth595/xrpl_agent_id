@@ -6,6 +6,13 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-09-28
+
+### Added
+- **S_DevLabs branding in dashboard header** — SVG hexagon + stylized S mark (teal-to-deep-blue gradient, matches the S_DevLabs logo) renders to the left of the title
+- **"BY S_DEVLABS" pill tag** next to the dashboard title (teal accent, uppercase, rounded)
+- Brand mark is inline SVG (no external assets), mirrors the official logo's gradient
+
 ## [0.2.2] - 2026-09-28
 
 ### Added

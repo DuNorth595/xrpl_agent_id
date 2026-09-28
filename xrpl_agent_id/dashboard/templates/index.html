@@ -37,7 +37,9 @@
     background: var(--panel);
     gap: 16px;
     flex-wrap: wrap;
+    position: relative;
   }
+  header .header-main { flex: 1; min-width: 0; }
   header h1 {
     margin: 0;
     font-size: 17px;
@@ -49,6 +51,79 @@
     font-family: var(--mono);
     font-size: 12px;
   }
+
+  /* Health pill in header (click to expand popover) */
+  .health-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .health-pill:hover {
+    border-color: var(--accent);
+    background: rgba(94, 234, 212, 0.05);
+  }
+  .health-pill .health-summary {
+    font-size: 11px;
+    padding-left: 8px;
+    border-left: 1px solid var(--border);
+  }
+
+  /* Dropdown popover anchored under the pill */
+  .health-popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 22px;
+    width: 360px;
+    max-height: 420px;
+    overflow-y: auto;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 50;
+  }
+  .health-popover[hidden] { display: none; }
+  .health-popover-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .health-popover-header button {
+    background: transparent;
+    border: 0;
+    color: var(--muted);
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+  }
+  .health-popover-header button:hover { color: var(--text); }
+
+  /* Three-column agent grid */
+  .agent-col .agent-col-body {
+    max-height: 380px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .agent-col .agent-col-body:empty::before,
+  .agent-col .agent-col-body .empty { display: block; }
+  .agent-col[data-role="subject"] h2 { color: var(--accent); }
+  .agent-col[data-role="issuer"] h2  { color: var(--accent-2); }
+  .agent-col[data-role="evaluator"] h2 { color: var(--warn); }
   .container {
     padding: 18px 22px;
     display: grid;
@@ -219,15 +294,26 @@
 </head>
 <body>
 <header>
-  <div>
+  <div class="header-main">
     <h1>xrpl_agent_id — Live Dashboard</h1>
     <div class="meta">
       XRPL Testnet · W3C did:xrpl + XLS-70 Credentials
     </div>
   </div>
-  <div class="meta" id="connection">
+  <div class="health-pill" id="health-pill" title="Click for full event log">
     <span class="dot" id="conn-dot"></span>
     <span id="conn-text">connecting…</span>
+    <span class="health-summary muted" id="conn-summary"></span>
+  </div>
+  <div class="health-popover" id="health-popover" hidden>
+    <div class="health-popover-header">
+      <strong>Connection health</strong>
+      <button id="health-close" aria-label="Close">×</button>
+    </div>
+    <table id="health">
+      <thead><tr><th>When</th><th>Event</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </div>
 </header>
 
@@ -242,19 +328,25 @@
     </div>
   </div>
 
-  <div class="panel col-8">
-    <h2>Tracked agents</h2>
-    <div id="agents">
-      <div class="empty">No agents watched yet. Add an address to <code>xrpl_agent_id_dashboard.db</code> via the watchlist table.</div>
+  <div class="panel col-4 agent-col" data-role="subject">
+    <h2>Subject</h2>
+    <div class="agent-col-body" id="agents-subject">
+      <div class="empty">No subject watched.</div>
     </div>
   </div>
 
-  <div class="panel col-4">
-    <h2>Connection health</h2>
-    <table id="health">
-      <thead><tr><th>When</th><th>Event</th></tr></thead>
-      <tbody></tbody>
-    </table>
+  <div class="panel col-4 agent-col" data-role="issuer">
+    <h2>Issuer</h2>
+    <div class="agent-col-body" id="agents-issuer">
+      <div class="empty">No issuer watched.</div>
+    </div>
+  </div>
+
+  <div class="panel col-4 agent-col" data-role="evaluator">
+    <h2>Evaluator</h2>
+    <div class="agent-col-body" id="agents-evaluator">
+      <div class="empty">No evaluator watched.</div>
+    </div>
   </div>
 
   <div class="panel col-6">
@@ -273,9 +365,7 @@
   <div class="panel col-6">
     <h2>Recent identity events</h2>
     <table id="ids">
-      <thead>
-        <tr><th>When</th><th>Op</th><th>Account</th><th>DID</th><th>Tx</th></tr>
-      </thead>
+      <thead><tr><th>When</th><th>Op</th><th>Account</th><th>DID</th><th>Tx</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>

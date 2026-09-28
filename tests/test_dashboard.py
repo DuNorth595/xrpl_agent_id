@@ -115,7 +115,7 @@ def test_schema_and_inserts() -> None:
         # Watchlist
         db.upsert_watch(
             conn, address="rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf",
-            role="agent", label="Test Subject", added_at=now,
+            role="subject", label="Test Subject", added_at=now,
         )
         rows = db.list_watch(conn)
         assert len(rows) == 1
@@ -141,7 +141,7 @@ def test_schema_and_inserts() -> None:
         assert len(state["agents"]) == 1
         agent = state["agents"][0]
         assert agent["address"] == "rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf"
-        assert agent["role"] == "agent"
+        assert agent["role"] == "subject"
         assert agent["did_status"] is not None
         # 1 Create (subject is party) + 1 Accept (subject is party) = 2 events for this agent
         assert len(agent["credentials"]) == 2
@@ -161,7 +161,7 @@ def test_http_handler() -> None:
         now = int(time.time())
         db.upsert_watch(
             conn, address="rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf",
-            role="agent", label="test", added_at=now,
+            role="subject", label="test", added_at=now,
         )
         db.insert_identity_event(
             conn,

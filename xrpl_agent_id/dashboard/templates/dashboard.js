@@ -34,6 +34,7 @@ const OP_PILL_CLASS = {
 
 let lastSuccessfulFetch = 0;
 let lastErrorMsg = "";
+let lastEventCount;
 
 async function getJSON(url) {
   const r = await fetch(url, { cache: "no-store" });
@@ -45,6 +46,13 @@ function setConnState(ok, msg) {
   $("conn-dot").classList.toggle("good", ok);
   $("conn-dot").classList.toggle("bad", !ok);
   $("conn-text").textContent = msg;
+  // Show event count in the pill's secondary span, if there's recent data
+  const summaryEl = $("conn-summary");
+  if (ok && lastEventCount !== undefined) {
+    summaryEl.textContent = `${lastEventCount} events`;
+  } else {
+    summaryEl.textContent = "";
+  }
 }
 
 async function refresh() {
@@ -64,52 +72,69 @@ async function refresh() {
     $("stat-watch").textContent = summary.watchlist_count ?? 0;
     $("stat-when").textContent = fmtTime(summary.now);
 
-    // Agents
-    const agentsEl = $("agents");
-    if (!agents.agents || agents.agents.length === 0) {
-      agentsEl.innerHTML =
-        '<div class="empty">No agents watched yet. Insert into watchlist table to track.</div>';
-    } else {
-      agentsEl.innerHTML = "";
-      for (const a of agents.agents) {
-        const card = document.createElement("div");
-        card.className = "agent-card";
-        const didStatus = a.did_status
-          ? `<span class="muted">DID: ${a.did_status.op_type} · ${fmtTime(a.did_status.received_at)}</span>`
-          : '<span class="muted">No DID event yet</span>';
-        const credsHtml = a.credentials.length === 0
-          ? '<div class="muted mono" style="font-size:11px;margin-top:6px">No credential events</div>'
-          : `<div class="cred-list">${a.credentials
-              .map((c) => {
-                const cls =
-                  c.op_type === "CredentialDelete" ? "cred-item revoked"
-                  : c.op_type === "CredentialAccept" ? "cred-item accepted"
-                  : "cred-item";
-                const op =
-                  c.op_type === "CredentialCreate" ? "issued"
-                  : c.op_type === "CredentialAccept" ? "accepted"
-                  : c.op_type === "CredentialDelete" ? "deleted"
-                  : c.op_type;
-                return `<div class="${cls}">
-                  <span class="pill ${c.op_type === 'CredentialCreate' ? 'pill-create' : c.op_type === 'CredentialAccept' ? 'pill-accept' : 'pill-delete'}">${op}</span>
-                  <span>${shortType(c.credential_type || c.credential_type_hex || "—")}</span>
-                  <span class="muted">${shortAddr(c.issuer)} → ${shortAddr(c.subject)}</span>
-                  <span class="muted">${fmtTime(c.received_at)}</span>
-                </div>`;
-              })
-              .join("")}</div>`;
-        const roleClass = a.role === "issuer" ? "issuer" : a.role === "observer" ? "observer" : "";
-        card.innerHTML = `
-          <h3>
-            <span class="role ${roleClass}">${a.role}</span>
-            ${a.label ? `<span>${a.label}</span>` : ""}
-            <span class="addr">${a.address}</span>
-          </h3>
-          <div>${didStatus}</div>
-          ${credsHtml}
-        `;
-        agentsEl.appendChild(card);
+    // Agents — split into three columns by role (subject / issuer / evaluator).
+    // Multiple agents can land in the same column (e.g. two issuers).
+    const cols = {
+      subject:   $("agents-subject"),
+      issuer:    $("agents-issuer"),
+      evaluator: $("agents-evaluator"),
+    };
+    // Reset
+    for (const c of Object.values(cols)) c.innerHTML = "";
+
+    const bucket = (role) => (agents.agents || []).filter((a) => a.role === role);
+
+    const renderCard = (a) => {
+      const card = document.createElement("div");
+      card.className = "agent-card";
+      const didStatus = a.did_status
+        ? `<span class="muted">DID: ${a.did_status.op_type} · ${fmtTime(a.did_status.received_at)}</span>`
+        : '<span class="muted">No DID event yet</span>';
+      const credsHtml = a.credentials.length === 0
+        ? '<div class="muted mono" style="font-size:11px;margin-top:6px">No credential events</div>'
+        : `<div class="cred-list">${a.credentials
+            .map((c) => {
+              const cls =
+                c.op_type === "CredentialDelete" ? "cred-item revoked"
+                : c.op_type === "CredentialAccept" ? "cred-item accepted"
+                : "cred-item";
+              const op =
+                c.op_type === "CredentialCreate" ? "issued"
+                : c.op_type === "CredentialAccept" ? "accepted"
+                : c.op_type === "CredentialDelete" ? "deleted"
+                : c.op_type;
+              return `<div class="${cls}">
+                <span class="pill ${c.op_type === 'CredentialCreate' ? 'pill-create' : c.op_type === 'CredentialAccept' ? 'pill-accept' : 'pill-delete'}">${op}</span>
+                <span>${shortType(c.credential_type || c.credential_type_hex || "—")}</span>
+                <span class="muted">${shortAddr(c.issuer)} → ${shortAddr(c.subject)}</span>
+                <span class="muted">${fmtTime(c.received_at)}</span>
+              </div>`;
+            })
+            .join("")}</div>`;
+      card.innerHTML = `
+        <h3>
+          ${a.label ? `<span>${a.label}</span>` : ""}
+          <span class="addr">${a.address}</span>
+        </h3>
+        <div>${didStatus}</div>
+        ${credsHtml}
+      `;
+      return card;
+    };
+
+    let anyAgent = false;
+    for (const role of ["subject", "issuer", "evaluator"]) {
+      const agents = bucket(role);
+      if (agents.length === 0) {
+        cols[role].innerHTML = `<div class="empty">No ${role} watched.</div>`;
+        continue;
       }
+      anyAgent = true;
+      for (const a of agents) cols[role].appendChild(renderCard(a));
+    }
+    if (!anyAgent) {
+      // Shouldn't reach here given the per-col empty state, but safety net.
+      for (const c of Object.values(cols)) c.innerHTML = `<div class="empty">No agents watched yet.</div>`;
     }
 
     // Watchlist
@@ -167,6 +192,7 @@ async function refresh() {
       .join("") || '<tr><td colspan="2" class="empty">no monitor events yet</td></tr>';
 
     lastSuccessfulFetch = Math.floor(Date.now() / 1000);
+    lastEventCount = (health.events || []).length;
     setConnState(true, `connected · ${summary.identity_events + summary.credential_events} events`);
   } catch (e) {
     lastErrorMsg = e.message || String(e);
@@ -245,6 +271,23 @@ setInterval(() => {
     setConnState(false, "stale — refresh failed");
   }
 }, 5000);
+
+// Health popover — click the pill to toggle, click × to close.
+const healthPill = $("health-pill");
+const healthPopover = $("health-popover");
+const healthClose = $("health-close");
+healthPill.addEventListener("click", () => {
+  healthPopover.hidden = !healthPopover.hidden;
+});
+healthClose.addEventListener("click", () => {
+  healthPopover.hidden = true;
+});
+document.addEventListener("click", (e) => {
+  // Click outside the popover closes it
+  if (healthPopover.hidden) return;
+  if (healthPopover.contains(e.target) || healthPill.contains(e.target)) return;
+  healthPopover.hidden = true;
+});
 
 refresh();
 setInterval(refresh, REFRESH_MS);

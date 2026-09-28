@@ -14,7 +14,7 @@
 ## Cover Page
 
 **Package:** `xrpl_agent_id`
-**Version:** 0.1.0 (beta)
+**Version:** 0.2.0 (beta)
 **Author:** Justin Douglas
 **License:** MIT
 **Python:** ≥ 3.9

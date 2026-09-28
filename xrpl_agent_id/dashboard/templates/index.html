@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>xrpl_agent_id — Live Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel-2: #1d222c;
+    --border: #262b36;
+    --text: #e6e8ee;
+    --muted: #8a93a6;
+    --accent: #5eead4;
+    --accent-2: #a78bfa;
+    --warn: #fbbf24;
+    --bad: #f87171;
+    --good: #4ade80;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  header {
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--panel);
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  header .meta {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .container {
+    padding: 18px 22px;
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(12, 1fr);
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    overflow: hidden;
+  }
+  .panel h2 {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .stat {
+    background: var(--panel-2);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .stat .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .stat .value { font-family: var(--mono); font-size: 18px; margin-top: 4px; font-weight: 600; }
+  .col-3 { grid-column: span 3; }
+  .col-4 { grid-column: span 4; }
+  .col-6 { grid-column: span 6; }
+  .col-8 { grid-column: span 8; }
+  .col-12 { grid-column: span 12; }
+  @media (max-width: 980px) {
+    .col-3, .col-4, .col-6, .col-8 { grid-column: span 12; }
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  th, td {
+    padding: 7px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  th { color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.4px; }
+  tr:hover td { background: rgba(94, 234, 212, 0.04); }
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .pill-create { background: rgba(94, 234, 212, 0.15); color: var(--accent); }
+  .pill-accept { background: rgba(167, 139, 250, 0.15); color: var(--accent-2); }
+  .pill-delete { background: rgba(248, 113, 113, 0.15); color: var(--bad); }
+  .pill-didset { background: rgba(94, 234, 212, 0.15); color: var(--accent); }
+  .pill-diddel { background: rgba(248, 113, 113, 0.15); color: var(--bad); }
+  .pill-other  { background: rgba(138, 147, 166, 0.15); color: var(--muted); }
+  .empty { color: var(--muted); padding: 14px; text-align: center; font-style: italic; }
+  .dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .dot.good { background: var(--good); box-shadow: 0 0 6px var(--good); }
+  .dot.bad { background: var(--bad); }
+  .mono { font-family: var(--mono); font-size: 12px; }
+  .muted { color: var(--muted); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .agent-card {
+    background: var(--panel-2);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .agent-card h3 {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .agent-card .addr { font-family: var(--mono); color: var(--muted); font-size: 11px; }
+  .agent-card .role {
+    font-size: 10px;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(94, 234, 212, 0.1);
+    color: var(--accent);
+  }
+  .agent-card .role.issuer { background: rgba(167, 139, 250, 0.1); color: var(--accent-2); }
+  .agent-card .role.observer { background: rgba(138, 147, 166, 0.1); color: var(--muted); }
+  .cred-list {
+    margin-top: 8px;
+    display: grid;
+    gap: 4px;
+  }
+  .cred-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.02);
+  }
+  .cred-item.revoked { opacity: 0.5; text-decoration: line-through; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>xrpl_agent_id — Live Dashboard</h1>
+    <div class="meta">
+      XRPL Testnet · W3C did:xrpl + XLS-70 Credentials
+    </div>
+  </div>
+  <div class="meta" id="connection">
+    <span class="dot" id="conn-dot"></span>
+    <span id="conn-text">connecting…</span>
+  </div>
+</header>
+
+<div class="container">
+  <div class="panel col-12">
+    <h2>Summary</h2>
+    <div class="stat-grid" id="summary">
+      <div class="stat"><div class="label">Identity events</div><div class="value" id="stat-id">—</div></div>
+      <div class="stat"><div class="label">Credential events</div><div class="value" id="stat-cred">—</div></div>
+      <div class="stat"><div class="label">Watchlist size</div><div class="value" id="stat-watch">—</div></div>
+      <div class="stat"><div class="label">Last update</div><div class="value" id="stat-when">—</div></div>
+    </div>
+  </div>
+
+  <div class="panel col-8">
+    <h2>Tracked agents</h2>
+    <div id="agents">
+      <div class="empty">No agents watched yet. Add an address to <code>xrpl_agent_id_dashboard.db</code> via the watchlist table.</div>
+    </div>
+  </div>
+
+  <div class="panel col-4">
+    <h2>Connection health</h2>
+    <table id="health">
+      <thead><tr><th>When</th><th>Event</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="panel col-6">
+    <h2>Recent credentials</h2>
+    <table id="creds">
+      <thead>
+        <tr>
+          <th>When</th><th>Op</th><th>Issuer</th><th>Subject</th>
+          <th>Type</th><th>URI</th><th>Tx</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="panel col-6">
+    <h2>Recent identity events</h2>
+    <table id="ids">
+      <thead>
+        <tr><th>When</th><th>Op</th><th>Account</th><th>DID</th><th>Tx</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="panel col-12">
+    <h2>Watchlist</h2>
+    <table id="watchlist">
+      <thead><tr><th>Address</th><th>Role</th><th>Label</th><th>Added</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="static/dashboard.js"></script>
+</body>
+</html>

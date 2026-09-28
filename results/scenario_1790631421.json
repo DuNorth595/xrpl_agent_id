@@ -1,0 +1,97 @@
+{
+  "started_at": "2026-09-28T21:35:59.916241+00:00",
+  "network": {
+    "name": "testnet",
+    "json_rpc_url": "https://s.altnet.rippletest.net:51234"
+  },
+  "wallets": {
+    "subject": {
+      "address": "rhuboR2n7JUCcFsi4Z2eem3s656BJhL1pz",
+      "did": "did:xrpl:2:rhuboR2n7JUCcFsi4Z2eem3s656BJhL1pz"
+    },
+    "issuer": {
+      "address": "rw1NtKT7SyD43XnMG7GKKE57i7Dn8LVA1o",
+      "did": "did:xrpl:2:rw1NtKT7SyD43XnMG7GKKE57i7Dn8LVA1o"
+    },
+    "evaluator": {
+      "address": "rEmcSPG4Vrp1cRbvCxZ8ZXMamQMzhkdQA2",
+      "did": "did:xrpl:2:rEmcSPG4Vrp1cRbvCxZ8ZXMamQMzhkdQA2"
+    }
+  },
+  "steps": {
+    "issue_kyc": {
+      "tx_type": "CredentialCreate",
+      "type": "AGENT_ID_V1",
+      "uri": "ipfs://bafkreigh2akisc3d4dh5d4kpqj3u4w4k4k4k4k4k4k4k4k4k4k4k4k4k4k"
+    },
+    "issue_eval": {
+      "tx_type": "CredentialCreate",
+      "type": "EVAL_PASSED",
+      "uri": "ipfs://bafkreigh2akisc3d4dh5d4kpqj3u4w4k4k4k4k4k4k4k4k4k4k4k4k4k4k"
+    },
+    "accept_kyc": {
+      "tx_type": "CredentialAccept"
+    },
+    "accept_eval": {
+      "tx_type": "CredentialAccept"
+    },
+    "did_set": {
+      "tx_type": "DIDSet",
+      "uri": "https://xrpl-agent-id.example/did/rhuboR2n7JUCcFsi4Z2eem3s656BJhL1pz"
+    },
+    "verify_set": {
+      "summary": "2/3 required credentials satisfied",
+      "all_satisfied": false,
+      "missing": [
+        [
+          "rw1NtKT7SyD43XnMG7GKKE57i7Dn8LVA1o",
+          "4E4F4E4558495354454E54"
+        ]
+      ],
+      "results": {
+        "rw1NtKT7SyD43XnMG7GKKE57i7Dn8LVA1o:6167656E745F6964656E746974795F7631": true,
+        "rEmcSPG4Vrp1cRbvCxZ8ZXMamQMzhkdQA2:6167656E745F6576616C5F7061737365645F7631": true,
+        "rw1NtKT7SyD43XnMG7GKKE57i7Dn8LVA1o:4E4F4E4558495354454E54": false
+      }
+    },
+    "trust_registry_pass": {
+      "summary": "\u2713 trust policy satisfied for rhuboR2n7JUCcFsi4Z2eem3s656BJhL1pz",
+      "satisfied": true,
+      "missing_required": []
+    },
+    "trust_registry_fail": {
+      "summary": "\u2717 trust policy FAILED for rhuboR2n7JUCcFsi4Z2eem3s656BJhL1pz: 1 missing required",
+      "satisfied": false,
+      "missing_required": [
+        [
+          "rw1NtKT7SyD43XnMG7GKKE57i7Dn8LVA1o",
+          "4E4F4E4558495354454E545F43524544454E5449414C5F54595045"
+        ]
+      ]
+    },
+    "revoke_kyc": {
+      "tx_type": "CredentialDelete",
+      "tx_hash": "EFB97EEBA783F70BD5CC4A7A95D659CEBCA12D514C931A139861AC77BB0AAFEF"
+    },
+    "verify_set_after_revoke": {
+      "summary": "1/2 required credentials satisfied",
+      "missing": [
+        [
+          "rw1NtKT7SyD43XnMG7GKKE57i7Dn8LVA1o",
+          "6167656E745F6964656E746974795F7631"
+        ]
+      ]
+    },
+    "trust_registry_after_revoke": {
+      "summary": "\u2717 trust policy FAILED for rhuboR2n7JUCcFsi4Z2eem3s656BJhL1pz: 1 missing required",
+      "satisfied": false,
+      "missing_required": [
+        [
+          "rw1NtKT7SyD43XnMG7GKKE57i7Dn8LVA1o",
+          "6167656E745F6964656E746974795F7631"
+        ]
+      ]
+    }
+  },
+  "finished_at": "2026-09-28T21:37:01.676122+00:00"
+}

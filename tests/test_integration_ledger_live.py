@@ -204,3 +204,89 @@ def test_04_set_did_document(live_wallets):
     # The on-ledger DID entry has only the URI, no DIDDocument.
     # resolve_did() should still succeed by synthesizing a minimal document
     # or by returning the URI for the caller to fetch.
+
+
+def test_05_revoke_credential(live_wallets):
+    """Issuer can revoke a previously issued credential.
+
+    Revocation uses CredentialCreate with a `revoke://` URI marker so the
+    audit trail stays on-ledger. The original credential entry remains
+    visible (with its acceptance flag) but the latest CredentialCreate
+    for the (issuer, subject, type) triple marks revocation.
+    """
+    issuer = Authority.from_seed(live_wallets["issuer_seed"], network="testnet")
+    subject_addr = live_wallets["subject_address"]
+
+    print(f"\n--- Issuer revoking EVAL_PASSED credential for {subject_addr} ---")
+    cred_type = CredentialType.EVAL_PASSED.value.encode()
+    revoke_hash = issuer.revoke_credential(
+        subject=subject_addr,
+        credential_type=cred_type,
+    )
+    print(f"Revoke CredentialCreate tx_hash: {revoke_hash}")
+    assert revoke_hash
+    assert len(revoke_hash) == 64
+
+
+def test_06_verify_set_and_trust_registry(live_wallets):
+    """Authority.verify_set and TrustRegistry.check return expected results.
+
+    Issues a fresh credential (so this test does not depend on test_03
+    or test_05 state), then verifies it via both verify_set and
+    TrustRegistry.
+    """
+    from xrpl_agent_id import TrustRegistry
+
+    issuer = Authority.from_seed(live_wallets["issuer_seed"], network="testnet")
+    subject = AgentIdentity.from_seed(live_wallets["subject_seed"], network="testnet")
+    subject_addr = live_wallets["subject_address"]
+    issuer_addr = live_wallets["issuer_address"]
+
+    # Issue a fresh credential for this test
+    cred_type = CredentialType.VERIFIED_AGENT_OPERATOR.value.encode()
+    print(f"\n--- Issuer issuing PRODUCTION_READY credential ---")
+    issuer.issue_credential(
+        subject=subject_addr,
+        credential_type=cred_type,
+        uri="ipfs://bafkreigh2akisc3d4dh5d4kpqj3u4w4k4k4k4k4k4k4k4k4k4k4k4k4k4k",
+    )
+    print(f"--- Subject accepting ---")
+    accept_hash = subject.accept_credential(
+        issuer=issuer_addr,
+        credential_type=cred_type,
+    )
+    print(f"CredentialAccept tx_hash: {accept_hash}")
+
+    fake_type = b"NONEXISTENT_CREDENTIAL_TYPE"
+
+    print(f"--- Authority.verify_set({subject_addr}, [...]) ---")
+    result = issuer.verify_set(
+        agent_did=subject_addr,
+        required=[
+            (issuer_addr, cred_type),    # should be held
+            (issuer_addr, fake_type),    # should NOT be held
+        ],
+    )
+    print(f"verify_set summary: {result.summary()}")
+    print(f"  satisfied: {result.all_satisfied}")
+    print(f"  missing: {result.missing}")
+    assert result.all_satisfied is False
+    assert (issuer_addr, fake_type) in result.missing
+    assert (issuer_addr, cred_type) not in result.missing
+
+    # TrustRegistry — policy: requires PRODUCTION_READY from this issuer
+    print(f"--- TrustRegistry.check({subject_addr}) — require PRODUCTION_READY ---")
+    policy = TrustRegistry(network="testnet")
+    policy.require(issuer=issuer_addr, credential_type=cred_type)
+    check = policy.check(agent_did=subject_addr)
+    print(f"TrustCheckResult: {check.summary()}")
+    assert check.satisfied is True
+
+    # TrustRegistry — policy: requires a type the agent does NOT have
+    print(f"--- TrustRegistry.check — require NONEXISTENT_CREDENTIAL_TYPE ---")
+    strict_policy = TrustRegistry(network="testnet")
+    strict_policy.require(issuer=issuer_addr, credential_type=fake_type)
+    fail_check = strict_policy.check(agent_did=subject_addr)
+    print(f"TrustCheckResult: {fail_check.summary()}")
+    assert fail_check.satisfied is False
+    assert len(fail_check.missing_required) == 1

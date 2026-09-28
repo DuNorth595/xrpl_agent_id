@@ -7,6 +7,25 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **`xrpl_agent_id/dashboard/`** — live agent-ID dashboard (stdlib-only HTTP)
+  - `dashboard/db.py` — SQLite schema (identity_events, credential_events, watchlist, monitor_events)
+  - `dashboard/monitor.py` — XRPL testnet websocket subscriber, filters for CredentialCreate/Accept/Delete + DIDSet/DIDDelete
+  - `dashboard/server.py` — stdlib HTTP server with JSON API (`/api/summary`, `/api/credentials`, `/api/identities`, `/api/watchlist`, `/api/agent_state`, `/api/health`)
+  - `dashboard/templates/index.html` + `dashboard.js` — single-page dark-theme UI, polled every 2s
+  - `dashboard/backfill.py` — seeds DB from existing `results/scenario_*.json` files
+  - **6 API endpoints, 1 watcher, 1 server, 1 backfill tool, 1 HTML/JS dashboard**
+- **`scripts/sync_to_desktop.py`** — mirrors LIFE_MEMORY project to `~/Desktop/XRPL_AGENT_ID/<version>/` per version (read-only Desktop archive)
+- **Test coverage expansion:** 43 → 45 offline tests (+2 dashboard smoke tests)
+- **`docs/03_dashboard.md`** — dashboard usage guide
+
+### Known issues
+- `submit_and_wait` intermittently hits `tefPAST_SEQ` when called immediately after another test (cached `LastLedgerSequence`). Mitigated with `time.sleep(3)` at script start. Long-term fix: retry decorator on `submit_and_wait`.
+- `TrustRegistry._get_agent_credentials()` is a stub; needs `xrpl.account_objects` integration for full ledger enumeration.
+- `TrustRegistry` cache is unbounded; needs LRU eviction or TTL.
+
+## [0.2.0] - 2026-09-28 (build-out #2)
+
+### Added
 - **`xrpl_agent_id/trust.py`** — new module: trust library layer
   - `TrustRegistry` — composable trust policy with `.require()` and `.deny()` rules
   - `TrustPolicy`, `TrustCheckResult` — dataclasses for rule + result representation
@@ -19,6 +38,7 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Public API surface** (`xrpl_agent_id/__init__.py`):
   - `TrustRegistry`, `TrustPolicy`, `TrustCheckResult`, `VerificationResult` exported
 - **`scripts/run_trust_scenarios.py`** — end-to-end scenario runner
+
   - 11-step trust library scenario on real testnet
   - Captures all tx hashes + verify results to `results/scenario_<ts>.json`
 - **Test coverage expansion:** 27 → 43 offline tests (16 new tests for trust library)

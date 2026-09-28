@@ -118,6 +118,47 @@
   .pill-didset { background: rgba(94, 234, 212, 0.15); color: var(--accent); }
   .pill-diddel { background: rgba(248, 113, 113, 0.15); color: var(--bad); }
   .pill-other  { background: rgba(138, 147, 166, 0.15); color: var(--muted); }
+  .file-tree { font-family: var(--mono); font-size: 11px; }
+  .file-tree details { margin: 4px 0; }
+  .file-tree summary {
+    cursor: pointer;
+    color: var(--muted);
+    padding: 4px 6px;
+    border-radius: 4px;
+    user-select: none;
+  }
+  .file-tree summary:hover { background: rgba(255,255,255,0.03); color: var(--text); }
+  .file-tree ul { list-style: none; padding-left: 18px; margin: 4px 0; }
+  .file-tree li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px;
+    border-radius: 4px;
+  }
+  .file-tree li:hover { background: rgba(94, 234, 212, 0.04); }
+  .file-tree li .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-tree li .size { color: var(--muted); font-size: 10px; min-width: 60px; text-align: right; }
+  .file-tree li .reveal {
+    color: var(--accent);
+    font-size: 10px;
+    text-decoration: none;
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+  }
+  .file-tree li .reveal:hover { background: rgba(94, 234, 212, 0.1); }
+  .proj-root {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 8px 10px;
+    background: var(--panel-2);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    word-break: break-all;
+  }
+  .proj-root strong { color: var(--accent); }
   .empty { color: var(--muted); padding: 14px; text-align: center; font-style: italic; }
   .dot {
     display: inline-block;
@@ -245,6 +286,14 @@
       <thead><tr><th>Address</th><th>Role</th><th>Label</th><th>Added</th></tr></thead>
       <tbody></tbody>
     </table>
+  </div>
+
+  <div class="panel col-12">
+    <h2>Project files</h2>
+    <div class="proj-root" id="proj-root">loading…</div>
+    <div class="file-tree" id="file-tree">
+      <div class="empty">Loading…</div>
+    </div>
   </div>
 </div>
 

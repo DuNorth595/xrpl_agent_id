@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>xrpl_agent_id — Executive Summary</title>
+<style>
+  @page { size: letter; margin: 0; }
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --accent2: #d2a8ff;
+    --good: #3fb950;
+    --warn: #d29922;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    background: var(--bg); color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    margin: 0; padding: 0; line-height: 1.30;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .page {
+    width: 8.5in; min-height: 11in; margin: 0;
+    padding: 0.36in;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    position: relative;
+  }
+  .page-inner-border {
+    position: absolute; inset: 0.18in;
+    border: 1px solid var(--border);
+    pointer-events: none;
+  }
+  .header { display: flex; align-items: center; gap: 14pt; margin-bottom: 9pt; }
+  .seal { width: 56pt; height: 56pt; border-radius: 50%; border: 2px solid var(--accent); object-fit: cover; }
+  .title-block { flex: 1; }
+  h1 { color: var(--accent); font-size: 17pt; margin: 0 0 1pt 0; letter-spacing: 0.3pt; }
+  .tagline { color: var(--muted); font-size: 9pt; margin: 0; }
+  .meta { color: var(--muted); font-size: 8.5pt; margin-top: 5pt; border-top: 1px solid var(--border); padding-top: 4pt; }
+
+  .cover { text-align: center; padding: 1.1in 0 0.5in 0; }
+  .cover-title {
+    font-size: 32pt; color: var(--accent); margin: 0;
+    letter-spacing: 0.5pt; font-weight: bold;
+  }
+  .cover-subtitle {
+    font-size: 12pt; color: var(--accent2); margin: 4pt 0 0 0;
+    text-transform: uppercase; letter-spacing: 2pt;
+  }
+  .cover-tagline {
+    font-size: 10pt; color: var(--text); margin: 14pt 0 0 0;
+    line-height: 1.5;
+  }
+  .cover-divider {
+    width: 50%; margin: 14pt auto; border-top: 1px solid var(--border);
+  }
+  .cover-meta {
+    font-size: 9pt; color: var(--muted); margin: 0; line-height: 1.6;
+  }
+  .cover-contact {
+    font-size: 10pt; color: var(--text); margin: 0; line-height: 1.6;
+  }
+  .cover-contact a { color: var(--accent); text-decoration: none; }
+  .cover-foot {
+    font-size: 8.5pt; color: var(--muted); margin: 24pt 0 0 0;
+  }
+
+  h2 { color: var(--accent2); font-size: 10pt; margin: 5pt 0 2pt 0; text-transform: uppercase; letter-spacing: 0.5pt; border-bottom: 1px solid var(--border); padding-bottom: 1pt; }
+  h3 { color: var(--text); font-size: 9.5pt; margin: 4pt 0 1pt 0; }
+
+  .sec { background: var(--panel); border: 1px solid var(--border); padding: 3pt 8pt; margin: 2pt 0 3pt 0; font-size: 8.5pt; line-height: 1.40; }
+  .sec.problem { border-left: 3px solid var(--warn); }
+  .sec.solution { border-left: 3px solid var(--accent); }
+  .sec.demo { border-left: 3px solid var(--good); }
+  .sec.ask { border-left: 3px solid var(--accent2); }
+
+  .oneliner {
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    padding: 5pt 10pt;
+    margin: 4pt 0 2pt 0;
+    font-size: 11pt;
+    text-align: center;
+    font-weight: bold;
+    color: var(--accent);
+    letter-spacing: 0.3pt;
+  }
+  .oneliner-sub { text-align: center; font-size: 8pt; color: var(--muted); margin-bottom: 3pt; }
+
+  ol { margin: 2pt 0 2pt 16pt; padding: 0; }
+  ol li { margin: 2pt 0; font-size: 9pt; }
+  code { color: var(--accent2); background: #0a0e14; padding: 1pt 3pt; border-radius: 2pt; font-size: 8.5pt; }
+  ul { margin: 2pt 0 2pt 16pt; padding: 0; }
+  ul li { margin: 2pt 0; font-size: 9pt; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6pt; }
+  .kv { font-size: 8.5pt; margin: 1pt 0; }
+  .kv .k { color: var(--accent); }
+  .kv .v { color: var(--text); }
+  .footer { color: var(--muted); font-size: 8pt; border-top: 1px solid var(--border); margin-top: 8pt; padding-top: 4pt; text-align: center; }
+  strong { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="page">
+<div class="page-inner-border"></div>
+
+<div class="cover">
+  <h1 class="cover-title">xrpl_agent_id</h1>
+  <p class="cover-subtitle">Executive Summary</p>
+  <p class="cover-tagline">Portable, vendor-independent identity for AI agents<br>XRPL native · MIT licensed</p>
+  <div class="cover-divider"></div>
+  <p class="cover-meta"><strong>Identity &amp; Trust</strong> · XRP Ledger (XLS-70 Credentials + XLS-40d DIDs)<br>
+  Live on XRPL Testnet · 31/31 tests passing</p>
+  <div class="cover-divider"></div>
+  <p class="cover-contact">
+    Justin Douglas<br>
+    <a href="mailto:justindoug@gmail.com">justindoug@gmail.com</a><br>
+    <a href="tel:+16122198861">+1 (612) 219-8861</a>
+  </p>
+  <p class="cover-foot">Prepared 2026-09-28</p>
+</div>
+
+<div style="page-break-after: always;"></div>
+
+<div class="oneliner">Today, agent identity is a promise. This makes it a public fact.</div>
+
+<h2>The Problem</h2>
+<div class="sec problem">
+AI agents are taking real actions — spending money, calling APIs, signing contracts. But they have <strong>no public identity</strong> and <strong>no portable way to prove who vouched for them</strong>. Today, agent trust is a promise made by whoever runs the platform. That trust is invisible, vendor-locked, and impossible to audit. When an agent misbehaves, there's no public trail — only the platform vendor's private logs.
+</div>
+
+<h2>The Solution</h2>
+<div class="sec solution">
+<strong>xrpl_agent_id</strong> — a Python library that gives every AI agent a public, verifiable identity on the XRP Ledger. <strong>No new chain. No new consensus rule. No validator vote.</strong> Just the existing XLS-70 Credential and XLS-40d DID primitives, packaged for AI developers. Anyone in the world can verify any agent's identity and credentials with a single <code>ledger_entry</code> call — no API key, no permission, no trust in a vendor's internal logs.
+</div>
+
+<h2>How It Works</h2>
+<div class="sec solution">
+<strong>Three on-ledger transactions:</strong>
+<ol>
+  <li><strong>Issuer</strong> signs <code>CredentialCreate</code> — public attestation ("this agent passed audit X")</li>
+  <li><strong>Agent</strong> signs <code>CredentialAccept</code> — opts in; acceptance itself becomes auditable on-ledger</li>
+  <li><strong>Agent</strong> signs <code>DIDSet</code> — pins its W3C-compatible DID Document (URI-only pattern, fits the 256-byte on-ledger cap)</li>
+</ol>
+Verifiers query the ledger. They see the credential, the issuer, the timestamp, the URI to the full claim details. Done.
+</div>
+
+<h2>What's Already Built (Live Demo)</h2>
+<div class="sec demo">
+<div class="grid">
+  <div>
+    <div class="kv"><span class="k">Subject:</span> <span class="v">did:xrpl:2:rPNGAyKowBrtpbeVjzDkHG4uJBKdV1q3cf</span></div>
+    <div class="kv"><span class="k">Issuer:</span> <span class="v">did:xrpl:2:rHDfNdLUEd7tBXZCaUuuK5wMcKzhtpNDBU</span></div>
+  </div>
+  <div>
+    <div class="kv"><span class="k">CredentialCreate:</span> <span class="v">3C03A3E9…59E7 (lgr 21123060)</span></div>
+    <div class="kv"><span class="k">CredentialAccept:</span> <span class="v">580B8CD7…243A (lgr 21123062)</span></div>
+    <div class="kv"><span class="k">DIDSet:</span> <span class="v">A230469E…A3B3 (lgr 21123064)</span></div>
+  </div>
+</div>
+<br>
+<strong>Library state:</strong> Full Python package, MIT licensed. <strong>27 offline tests passing, 4 live integration tests passing.</strong> Ergonomic API: <code>AgentIdentity.from_seed()</code>, <code>issuer.issue_credential()</code>, <code>agent.has_credential()</code>, <code>resolve_did()</code>.
+</div>
+
+<h2>Why XRPL</h2>
+<div class="sec">
+<ul style="margin:3pt 0 3pt 18pt; padding:0;">
+  <li><strong>Both primitives already live on mainnet</strong> — XLS-40d since 2022, XLS-70 since 2024. Zero protocol changes required.</li>
+  <li><strong>3–5 second finality</strong> — fast enough for agent-to-agent commerce</li>
+  <li><strong>Sub-cent fees</strong> — cheap enough for high-frequency agent activity</li>
+  <li><strong>Native hooks for future enhancement</strong> — credential-aware transactions, native DID resolution RPC, MPC signers are all on the roadmap without requiring forks</li>
+</ul>
+</div>
+
+<h2>Why Now</h2>
+<div class="sec">
+Agent-to-agent commerce is the next frontier — LangChain, MCP, Composio are all exploding. Every agent framework today inherits the same closed-trust problem. <strong>The window for setting the standard is open — the first credible Python library wins.</strong>
+</div>
+
+<h2>The Ask</h2>
+<div class="sec ask">
+Looking for three things:
+<ol>
+  <li><strong>Validation</strong> from the XRPL community on the credential-type taxonomy (<code>KYC</code>, <code>EVAL</code>, <code>OPERATOR</code>, <code>COMPLIANCE</code>, etc.)</li>
+  <li><strong>An early issuer partner</strong> to run a pilot — any organization willing to issue credentials against real audit data</li>
+  <li><strong>Testnet feedback</strong> before mainnet launch</li>
+</ol>
+</div>
+
+</div>
+</body>
+</html>

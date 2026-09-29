@@ -33,7 +33,21 @@ from xrpl_agent_id.trust import (
     TrustRegistry,
 )
 
-__version__ = "0.3.2"
+__version__ = "0.3.3"
+XRPL_AGENT_ID_VERSION = __version__  # canonical alias — referenced in docs/tests
+
+# Version tuple for libraries that want to introspect (PEP 440-ish, loose).
+def _version_info() -> tuple[int, int, int]:
+    parts = __version__.split(".")
+    if len(parts) >= 3:
+        try:
+            return (int(parts[0]), int(parts[1]), int(parts[2].split("-")[0]))
+        except ValueError:
+            pass
+    return (0, 0, 0)
+
+
+XRPL_AGENT_ID_VERSION_INFO = _version_info()
 
 __all__ = [
     # Core types
@@ -57,4 +71,7 @@ __all__ = [
     "TrustCheckResult",
     "TrustPolicy",
     "TrustRegistry",
+    # Version (contract — pinned by tests/test_public_api.py)
+    "XRPL_AGENT_ID_VERSION",
+    "XRPL_AGENT_ID_VERSION_INFO",
 ]

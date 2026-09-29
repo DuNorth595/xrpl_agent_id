@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
+import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -87,7 +88,57 @@ def api_watchlist(conn: sqlite3.Connection) -> list[dict]:
     return [_row_to_dict(r) for r in rows]
 
 
+def api_version() -> dict:
+    """Structured version + runtime info for ops and CI smoke tests.
+
+    Stable contract — do not remove fields without bumping the API version.
+    """
+    return {
+        "package": "xrpl_agent_id",
+        "package_version": _pkg_version(),
+        "server_version": DashboardHandler.server_version.replace("xrpl_agent_id_dashboard/", ""),
+        "python_version": sys.version.split()[0],
+        "xrpl_py_version": _xrpl_py_version(),
+        "now": int(time.time()),
+        "ok": True,
+    }
+
+
+def _xrpl_py_version() -> str:
+    """Read xrpl-py's version via importlib.metadata (xrpl-py has no __version__ attr)."""
+    try:
+        from importlib.metadata import version
+
+        return version("xrpl-py")
+    except Exception:
+        return "unavailable"
+
+
+def api_liveness(conn: sqlite3.Connection) -> dict:
+    """Trivial liveness ping — returns OK if the DB is reachable.
+
+    Replaces the legacy /api/health route, which was actually returning
+    monitor events (misleading). The legacy URL still resolves here for
+    backward compatibility; new clients should hit /api/liveness.
+    """
+    row = conn.execute("SELECT 1 AS ok").fetchone()
+    return {"status": "ok" if row else "degraded", "now": int(time.time())}
+
+
 def api_health(conn: sqlite3.Connection, limit: int = 25) -> list[dict]:
+    """DEPRECATED — returned monitor events under a confusing name.
+
+    Kept for backward compatibility. New code should use ``api_liveness``
+    for actual liveness and ``api_monitor`` for monitor events.
+    """
+    rows = conn.execute(
+        "SELECT * FROM monitor_events ORDER BY fired_at DESC LIMIT ?", (limit,),
+    ).fetchall()
+    return [_row_to_dict(r) for r in rows]
+
+
+def api_monitor(conn: sqlite3.Connection, limit: int = 25) -> list[dict]:
+    """Recent monitor events, newest first. Successor to the misnamed /api/health."""
     rows = conn.execute(
         "SELECT * FROM monitor_events ORDER BY fired_at DESC LIMIT ?", (limit,),
     ).fetchall()
@@ -454,7 +505,7 @@ def api_verify(
 # ---------------------------------------------------------------------------
 
 class DashboardHandler(BaseHTTPRequestHandler):
-    server_version = "xrpl_agent_id_dashboard/0.1.0"
+    server_version = "xrpl_agent_id_dashboard/0.2.0"
 
     def log_message(self, format: str, *args: Any) -> None:
         # Quiet default access log; uncomment to debug.
@@ -523,9 +574,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 return self._send_json(api_agent_state(conn))
             if path == "/api/files":
                 return self._send_json(api_files())
-            if path == "/api/health":
+            if path == "/api/version":
+                return self._send_json(api_version())
+            if path == "/api/liveness":
+                return self._send_json(api_liveness(conn))
+            if path == "/api/monitor":
                 limit = int(qs.get("limit", ["25"])[0])
-                return self._send_json({"events": api_health(conn, limit=limit)})
+                return self._send_json({"events": api_monitor(conn, limit=limit)})
+            if path == "/api/health":
+                # DEPRECATED: was returning monitor events. Keep working for
+                # backward compat but route to the real liveness check.
+                limit = int(qs.get("limit", ["25"])[0])
+                return self._send_json({"liveness": api_liveness(conn), "legacy_events": api_health(conn, limit=limit)})
             if path == "/api/authz/events":
                 limit = int(qs.get("limit", ["50"])[0])
                 agent = qs.get("agent_did", [None])[0]

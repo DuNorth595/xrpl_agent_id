@@ -196,3 +196,65 @@ now works end-to-end and is exercisable via `RUN_LIVE=1`.
 - [ ] Add a `/api/verify` endpoint to the dashboard that takes a memo hex and
   returns the matching local SQLite row (so anyone can verify a memo
   without owning the DB).
+
+---
+
+## 10. v0.3.1 rerun evidence — controller_banned fires end-to-end on live testnet
+
+After v0.3.1, the full live harness was rerun (`RUN_LIVE=1`) to confirm
+`CONTROLLER_BANNED` actually fires on the **live decision path**, not just
+in unit tests. Run: 2026-09-29 01:53 UTC. N=6. Mirror mode: deny-only.
+
+Decision table (verbatim from `results/stress_summary_v031.json`):
+
+| Role | Allow | Reasons | Mirror tx |
+|---|---|---|---|
+| valid | ✓ | — | (none — deny-only mode) |
+| banned | ✗ | `[AGENT_BANNED]` | `F4F73A684C5514D40D40819863C1EF0B7724C1D757597E2D6A0A33928F099602` |
+| **controller_banned** | **✗** | **`[CONTROLLER_BANNED]`** | **`11E1DA8FB556E441367E0DCAA8FB278146BA29B45290B62E9650C953AED36AE5`** |
+| no_creds | ✗ | `[NO_CREDENTIALS]` | `019AC48904E447AEA63AB28E995468232461561EFC62BB2B9EDD2823CAF24EB7` |
+| wrong_issuer | ✗ | `[CREDENTIAL_MISSING]` | `14D49E49DDA8421A2456C5792FEAD9BEF4C9D851F9935F4D39816152E81A3B93` |
+| pending | ✗ | `[CREDENTIAL_REVOKED]` | `31D37ECED081E61F42644F3DBDCC0E5450E034DDAC8EB3D69D4E552128203693` |
+
+The chain of evidence for `controller_banned`:
+
+1. **On-chain SignerList exists.** `AccountObjects` on
+   `rJpbZgjLvkuuYe28t2sW6mBAD8DJxLzBUr` returns a `SignerList` with
+   `SignerEntries=[rP21Ur8ePcwNWtZkDapXmsh8eNsNm5vvfp]` at weight 1,
+   quorum 1 — `index=D4312A09AF0B66DB2E63D06ADB627E9B294AD8F0C2E95D910CB1E28C49F157DA`.
+2. **The SignerList is `compromised` shape** (realistic compromise: banned
+   co-signer has full authority; master removed from list because XRPL
+   forbids the master from appearing in its own SignerList).
+3. **`AgentRegistry._read_signer_list` saw it** — returned
+   `controllers=[master, rP21Ur8ePcwNWtZkDapXmsh8eNsNm5vvfp]`.
+4. **`AuthorizationPolicy.evaluate` saw the banned controller** — returned
+   `allow=False`, `reasons=[CONTROLLER_BANNED]`.
+5. **The decision was mirrored on-chain** at
+   `11E1DA8FB556E441367E0DCAA8FB278146BA29B45290B62E9650C953AED36AE5`
+   (1 drop payment to sink `rnEWXuBUvpR6aUJ8GBPMi8NjXqBqGCZhjs`,
+   `tesSUCCESS`).
+
+Mirror memo decoded from the on-chain tx:
+
+```json
+{
+  "app": "xrpl_agent_id_audit",
+  "v": 1,
+  "decision_id": "7791EDF5B6FF32E66091845B796B91A5127E26EDB493996FD595B1E1FAC50EB5",
+  "allow": false,
+  "agent": "did:xrpl:2:rJpbZgjLvkuuYe28t2sW6mBAD8DJxLzBUr",
+  "ts": "2026-09-29T01:53:27.096846+00:00"
+}
+```
+
+**Note on memo schema:** the on-chain memo carries `decision_id + allow +
+agent + ts` only — not `reasons`. Reasons live in the local SQLite row
+keyed by `decision_id`. To make a memo **self-contained** (verifiable
+without the SQLite DB), the memo schema would need to either inline the
+reasons as a compact code (e.g. `R=1,3,5`) or split the memo across
+multiple Memos to fit `CREDENTIAL_MISSING` etc. within the ~1 KB cap.
+Tracked as a known limitation; not blocking.
+
+**Conclusion:** v0.3.1 closes the gap flagged in v0.3.0 §9. The
+`CONTROLLER_BANNED` reason is now reachable through the **same code path
+any production caller would hit**, with on-chain evidence at every step.

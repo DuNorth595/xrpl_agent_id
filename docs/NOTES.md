@@ -14,6 +14,7 @@ Session log for `xrpl_agent_id`. Working entries are at the top.
   - Issuer (Authority): `rMB3kkswgAu6bzJ6modhCF1xxDi6ugqFv4` (treasury wallet, acting as credentialing authority)
   - Same user holding both is acceptable for the demo because verification only requires reading the public ledger.
 
+- **GitHub:** https://github.com/DuNorth595/xrpl_agent_id (tagged `v0.2.4`, release with PDF attached)
 - **Testnet endpoint**: `wss://s.altnet.rippletest.net:51233`
 - **JSON-RPC submit**: `https://s.altnet.rippletest.net:51234`
 - **Min fee**: 15 drops on testnet (10 drops base; we use 15 for safety margin)

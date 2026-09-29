@@ -23,6 +23,9 @@ env/
 testnet_keys/
 *.secret
 seeds.json
+# Harness run artifacts (may contain testnet seeds / wallet JSON)
+results/*.json
+results/
 
 # PDF / build artifacts (regenerable from README.md)
 xrpl_agent_id_README.pdf

@@ -78,6 +78,25 @@ CREATE TABLE IF NOT EXISTS monitor_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_mevent_fired ON monitor_events(fired_at);
+
+CREATE TABLE IF NOT EXISTS auth_decisions (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    decided_at    INTEGER NOT NULL,
+    request_id    TEXT,
+    agent_did     TEXT NOT NULL,
+    allow         INTEGER NOT NULL,
+    reasons_json  TEXT NOT NULL,
+    summary       TEXT NOT NULL,
+    request_json  TEXT,
+    agent_record  TEXT,
+    extra_json    TEXT,
+    mirrored_tx   TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_ad_agent    ON auth_decisions(agent_did);
+CREATE INDEX IF NOT EXISTS idx_ad_decided  ON auth_decisions(decided_at);
+CREATE INDEX IF NOT EXISTS idx_ad_allow    ON auth_decisions(allow);
+CREATE INDEX IF NOT EXISTS idx_ad_request  ON auth_decisions(request_id);
 """
 
 
@@ -210,3 +229,90 @@ def list_watch(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 def remove_watch(conn: sqlite3.Connection, address: str) -> int:
     cur = conn.execute("DELETE FROM watchlist WHERE address = ?", (address,))
     return cur.rowcount
+
+
+def insert_auth_decision(
+    conn: sqlite3.Connection,
+    *,
+    decided_at: int,
+    request_id: str | None,
+    agent_did: str,
+    allow: bool,
+    reasons_json: str,
+    summary: str,
+    request_json: str | None,
+    agent_record: str | None,
+    extra_json: str | None,
+    mirrored_tx: str | None,
+) -> int:
+    """Insert one authorization decision row. Returns new row id."""
+    cur = conn.execute(
+        """
+        INSERT INTO auth_decisions (
+            decided_at, request_id, agent_did, allow, reasons_json,
+            summary, request_json, agent_record, extra_json, mirrored_tx
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            decided_at, request_id, agent_did, 1 if allow else 0, reasons_json,
+            summary, request_json, agent_record, extra_json, mirrored_tx,
+        ),
+    )
+    return cur.lastrowid or 0
+
+
+def update_auth_mirror_tx(conn: sqlite3.Connection, row_id: int, mirrored_tx: str) -> None:
+    conn.execute(
+        "UPDATE auth_decisions SET mirrored_tx = ? WHERE id = ?",
+        (mirrored_tx, row_id),
+    )
+
+
+def update_auth_extra(conn: sqlite3.Connection, row_id: int, extra_json: str) -> None:
+    conn.execute(
+        "UPDATE auth_decisions SET extra_json = ? WHERE id = ?",
+        (extra_json, row_id),
+    )
+
+
+def list_auth_decisions(
+    conn: sqlite3.Connection,
+    *,
+    agent_did: str | None = None,
+    allow: bool | None = None,
+    since: int | None = None,
+    limit: int = 50,
+) -> list[sqlite3.Row]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if agent_did is not None:
+        clauses.append("agent_did = ?")
+        params.append(agent_did)
+    if allow is not None:
+        clauses.append("allow = ?")
+        params.append(1 if allow else 0)
+    if since is not None:
+        clauses.append("decided_at >= ?")
+        params.append(since)
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    params.append(limit)
+    return list(conn.execute(
+        f"SELECT * FROM auth_decisions{where} ORDER BY decided_at DESC LIMIT ?",
+        params,
+    ))
+
+
+def auth_decision_stats(conn: sqlite3.Connection, since: int | None = None) -> dict:
+    params: list[Any] = []
+    where = ""
+    if since is not None:
+        where = " WHERE decided_at >= ?"
+        params.append(since)
+    total = conn.execute(
+        f"SELECT COUNT(*) AS c FROM auth_decisions{where}", params
+    ).fetchone()["c"]
+    allowed = conn.execute(
+        f"SELECT COUNT(*) AS c FROM auth_decisions{where}{' AND' if where else ' WHERE'} allow = 1",
+        params,
+    ).fetchone()["c"]
+    return {"total": total, "allowed": allowed, "denied": total - allowed}

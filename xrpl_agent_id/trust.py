@@ -217,15 +217,29 @@ class TrustRegistry:
         return False
 
     def _get_agent_credentials(self, client, subject_addr: str) -> list[tuple[str, bytes]]:
-        """Best-effort enumeration of all credentials held by an agent.
+        """Enumerate all credentials held by an agent via the ledger.
 
-        Note: XRPL does not natively support enumerating all credentials for
-        an account without a known issuer. This is a known limitation. We
-        surface the agents we already know about via the Authority API.
+        Uses AgentRegistry (xrpl.account_objects type=credential) under the
+        hood, so this is now an authoritative read instead of a cache lookup.
+        The result is returned as (issuer_address, credential_type_bytes)
+        tuples to match the existing TrustPolicy.matches() signature.
         """
-        # TODO: use xrpl.account_objects to fetch Credential ledger objects
-        # when available in 4.6+. For now, return cached + nothing new.
-        return list(self._cache.get(subject_addr, []))
+        from xrpl_agent_id.did import parse_did
+        from xrpl_agent_id.registry import AgentRegistry
+
+        registry = AgentRegistry(network=self.network)
+        record = registry.resolve(subject_addr)
+        # Convert each issuer DID back to its classic address so the rest of
+        # trust.py can match on address form (matches existing TrustPolicy).
+        result: list[tuple[str, bytes]] = []
+        for c in record.credentials:
+            try:
+                _, issuer_addr = parse_did(c.issuer)
+            except Exception:
+                continue
+            result.append((issuer_addr, c.credential_type))
+        self._cache[subject_addr] = result
+        return list(result)
 
 
 __all__ = [

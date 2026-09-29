@@ -48,13 +48,16 @@ CREATE TABLE IF NOT EXISTS auth_decisions (
     request_json  TEXT,
     agent_record  TEXT,
     extra_json    TEXT,
-    mirrored_tx   TEXT
+    mirrored_tx   TEXT,
+    decision_id   TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_ad_agent    ON auth_decisions(agent_did);
 CREATE INDEX IF NOT EXISTS idx_ad_decided  ON auth_decisions(decided_at);
 CREATE INDEX IF NOT EXISTS idx_ad_allow    ON auth_decisions(allow);
 CREATE INDEX IF NOT EXISTS idx_ad_request  ON auth_decisions(request_id);
+CREATE INDEX IF NOT EXISTS idx_ad_decid    ON auth_decisions(decision_id);
+CREATE INDEX IF NOT EXISTS idx_ad_mirtx    ON auth_decisions(mirrored_tx);
 """
 
 
@@ -129,6 +132,9 @@ class XRPLMirror:
     the mirror.
     """
 
+    APP_TAG = "xrpl_agent_id_audit"
+    SCHEMA_VERSION = 1
+
     def __init__(
         self,
         wallet,
@@ -154,17 +160,15 @@ class XRPLMirror:
 
         Returns the tx hash. Raises on submission failure.
         """
-        import hashlib
         from xrpl.transaction import submit_and_wait
         from xrpl.models.transactions import Payment, Memo
         from xrpl_agent_id.network import get_client
 
-        canonical = json.dumps(decision.to_dict(), sort_keys=True, separators=(",", ":"))
-        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest().upper()
+        digest = compute_decision_id(decision)
 
         memo_payload = {
-            "app": "xrpl_agent_id_audit",
-            "v": 1,
+            "app": self.APP_TAG,
+            "v": self.SCHEMA_VERSION,
             "decision_id": digest,
             "allow": decision.allow,
             "agent": decision.agent_did,
@@ -189,6 +193,20 @@ class XRPLMirror:
         response = submit_and_wait(tx, client, self.wallet)
         tx_hash = (response.result or {}).get("hash", "")
         return tx_hash
+
+
+def compute_decision_id(decision: AuthorizationDecision) -> str:
+    """Content hash of an AuthorizationDecision. Uppercase hex SHA-256.
+
+    The hash is stable across processes and is what the XRPL audit-mirror
+    embeds in the on-chain memo's ``decision_id`` field. Used by both
+    ``XRPLMirror.submit`` and the dashboard's ``/api/verify`` endpoint to
+    cross-link local audit rows with on-chain evidence.
+    """
+    import hashlib
+    canonical = json.dumps(decision.to_dict(), sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest().upper()
+
 
 
 class AuditLog:
@@ -256,14 +274,19 @@ class AuditLog:
             json.dumps(decision.request.__dict__) if decision.request else None
         )
         extra_json = json.dumps(extra) if extra else None
+        # Compute the content hash up-front so the row and the on-chain memo
+        # share the same decision_id (the dashboard's /api/verify relies on
+        # matching these two values).
+        decision_id = compute_decision_id(decision)
         mirror_tx: str | None = None
 
         cur = self._conn.execute(
             """
             INSERT INTO auth_decisions (
                 decided_at, request_id, agent_did, allow, reasons_json,
-                summary, request_json, agent_record, extra_json, mirrored_tx
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                summary, request_json, agent_record, extra_json, mirrored_tx,
+                decision_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 now,
@@ -276,6 +299,7 @@ class AuditLog:
                 decision.agent_record_summary,
                 extra_json,
                 mirror_tx,
+                decision_id,
             ),
         )
         new_id = cur.lastrowid

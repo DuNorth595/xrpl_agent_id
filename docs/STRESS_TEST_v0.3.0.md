@@ -193,9 +193,12 @@ now works end-to-end and is exercisable via `RUN_LIVE=1`.
   via `scripts/live_signerlist_smoke.py`.
 - [ ] Run a 50-agent stress to characterize ledger performance under load
   (target: 8s/decision median).
-- [ ] Add a `/api/verify` endpoint to the dashboard that takes a memo hex and
-  returns the matching local SQLite row (so anyone can verify a memo
-  without owning the DB).
+- [x] **Add a `/api/verify` endpoint to the dashboard that takes a memo hex or
+  tx hash and returns the matching local SQLite row.** Done in v0.3.2.
+  Resolves the v0.3.1 §10 "known limitation" — the endpoint now reverse-
+  looks up decisions from on-chain evidence (memo hex, raw tx hash, or
+  testnet/mainnet tx URL). See `tests/test_dashboard_verify.py` for the
+  contract.
 
 ---
 
@@ -253,8 +256,108 @@ keyed by `decision_id`. To make a memo **self-contained** (verifiable
 without the SQLite DB), the memo schema would need to either inline the
 reasons as a compact code (e.g. `R=1,3,5`) or split the memo across
 multiple Memos to fit `CREDENTIAL_MISSING` etc. within the ~1 KB cap.
-Tracked as a known limitation; not blocking.
+**Resolved in v0.3.2** — see §11.
 
 **Conclusion:** v0.3.1 closes the gap flagged in v0.3.0 §9. The
 `CONTROLLER_BANNED` reason is now reachable through the **same code path
 any production caller would hit**, with on-chain evidence at every step.
+
+---
+
+## 11. v0.3.2 — `/api/verify` resolves the §10 memo-only-isn't-enough gap
+
+The v0.3.1 §10 note flagged that the on-chain memo by itself is **not
+self-contained** — `decision_id` is a foreign key into the local SQLite
+DB. To verify a memo from the chain alone, you needed access to the DB.
+
+v0.3.2 closes that gap with `/api/verify`:
+
+```
+GET /api/verify?memo_hex=<hex>
+GET /api/verify?tx_hash=<hash>&network=testnet|mainnet
+```
+
+Live end-to-end verification of the v0.3.1 `controller_banned` tx:
+
+```bash
+$ curl -s 'http://127.0.0.1:8768/api/verify?tx_hash=11E1DA8FB556E441367E0DCAA8FB278146BA29B45290B62E9650C953AED36AE5'
+```
+
+```json
+{
+  "verified": true,
+  "lookup_via": "mirrored_tx (fallback)",
+  "decision_id": "7791EDF5B6FF32E66091845B796B91A5127E26EDB493996FD595B1E1FAC50EB5",
+  "memo": {
+    "app": "xrpl_agent_id_audit",
+    "v": 1,
+    "allow": false,
+    "agent": "did:xrpl:2:rJpbZgjLvkuuYe28t2sW6mBAD8DJxLzBUr",
+    "ts": "2026-09-29T01:53:27.096846+00:00"
+  },
+  "decision": {
+    "agent_did": "did:xrpl:2:rJpbZgjLvkuuYe28t2sW6mBAD8DJxLzBUr",
+    "reasons": [
+      {
+        "code": "CONTROLLER_BANNED",
+        "detail": "controller rP21Ur8ePcwNWtZkDapXmsh8eNsNm5vvfp: live test controller ban",
+        "issuer": null
+      }
+    ],
+    "extra": {"role": "controller_banned", "mode": "live"},
+    "mirrored_tx": "11E1DA8FB556E441367E0DCAA8FB278146BA29B45290B62E9650C953AED36AE5"
+  },
+  "on_chain_proof": {
+    "tx_hash": "11E1DA8FB556E441367E0DCAA8FB278146BA29B45290B62E9650C953AED36AE5",
+    "network": "testnet",
+    "explorer_url": "https://testnet.xrpl.org/transactions/11E1DA8FB556E441367E0DCAA8FB278146BA29B45290B62E9650C953AED36AE5"
+  }
+}
+```
+
+**What just happened:** the endpoint took the tx hash from the URL,
+fetched the memo from XRPL testnet (`testnet.xrpl.org` JSON-RPC),
+decoded the memo JSON, validated the `app` tag is `xrpl_agent_id_audit`,
+looked up the local SQLite row via the `mirrored_tx` fallback (the row
+pre-dates the `decision_id` column), and returned the full decision
+context — reasons, detail, issuer, mirrored tx — plus the on-chain
+proof for manual verification.
+
+### Behavior matrix
+
+| Input | Result |
+|---|---|
+| `?memo_hex=<valid xrpl_agent_id_audit hex>` | 200, looked up by `decision_id` (or `mirrored_tx` fallback) |
+| `?tx_hash=<valid testnet tx>` | 200, fetches memo, looks up by `decision_id` (or `mirrored_tx` fallback), returns `on_chain_proof` |
+| `?tx_hash=<valid mainnet tx>&network=mainnet` | 200, fetches from `xrplcluster.com` |
+| `?memo_hex=<hex>` with wrong `app` tag | 400 `{ "error": "memo is not an xrpl_agent_id_audit memo (app=...)" }` |
+| `?memo_hex=<not hex>` | 400 `{ "error": "invalid memo_hex" }` |
+| `?tx_hash=<bogus>` | 404 `{ "error": "tx not found on <network>" }` |
+| `?memo_hex=<valid>` but row missing | 404 `{ "error": "decision not found locally" }` |
+| `?tx_hash=<valid>` but XRPL RPC unreachable | 502 `{ "error": "xrpl rpc error: <message>" }` |
+
+### Schema notes
+
+- `auth_decisions.decision_id` was added in v0.3.2 with a `_migrate()`
+  helper that runs idempotently on `open_db()`. Existing rows get the
+  column added; new rows get the column populated at insert time by
+  `AuditLog.record()` (SHA-256 of canonical-JSON decision dict, uppercase
+  hex).
+- The `mirrored_tx` fallback exists specifically for rows that pre-date
+  the `decision_id` column. After `scripts/backfill_auth_decisions.py`
+  runs against legacy results DBs, new lookups hit the fast `decision_id`
+  index.
+- `XRPLMirror.APP_TAG = "xrpl_agent_id_audit"` and `SCHEMA_VERSION = 1`
+  are now module-level constants in `audit.py` — single source of truth
+  shared by mirror submit and `/api/verify`.
+
+### Test coverage
+
+`tests/test_dashboard_verify.py` adds 12 hermetic tests (no network):
+- `_decode_memo_hex` — happy path, `0x`/quote stripping, bad hex, non-UTF-8
+- Direct endpoint — memo_hex match, missing row 404, wrong app 400,
+  bad hex 400, missing args 400, both args 400, `tx_hash` with mocked RPC
+- HTTP layer — full round-trip via `ThreadingHTTPServer` covering happy
+  path + 400s
+
+Total offline tests: **145/145 passing** (was 133 in v0.3.1).

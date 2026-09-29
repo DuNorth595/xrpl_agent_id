@@ -23,6 +23,7 @@ from typing import Any
 from urllib.parse import urlparse, parse_qs
 
 from xrpl_agent_id.dashboard import db
+from xrpl_agent_id.audit import XRPLMirror
 
 DEFAULT_DB = Path.home() / "Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID/xrpl_agent_id_dashboard.db"
 DEFAULT_HOST = "127.0.0.1"
@@ -246,6 +247,209 @@ def api_authz_stats(conn: sqlite3.Connection, since_seconds: int = 24 * 3600) ->
 
 
 # -----------------------------------------------------------------------
+# /api/verify — cross-link on-chain memos to local audit rows
+# -----------------------------------------------------------------------
+
+# XRPL public RPC endpoints. testnet is the default; mainnet is also
+# supported because the dashboard may eventually verify mainnet memos.
+_VERIFY_NETWORK_URLS = {
+    "testnet": "https://s.altnet.rippletest.net:51234",
+    "mainnet": "https://xrplcluster.com",
+}
+
+
+def _decode_memo_hex(memo_hex: str) -> dict:
+    """Decode a memo hex string into the JSON dict it carries.
+
+    Raises:
+        ValueError on non-hex or non-utf8 input.
+        json.JSONDecodeError if the decoded bytes aren't valid JSON.
+    """
+    cleaned = memo_hex.strip().strip('"')
+    # Strip an optional 0x prefix and uppercase.
+    if cleaned.lower().startswith("0x"):
+        cleaned = cleaned[2:]
+    raw = bytes.fromhex(cleaned)
+    return json.loads(raw.decode("utf-8"))
+
+
+def _format_decision_row(row: sqlite3.Row) -> dict:
+    """Render an auth_decisions row the way /api/verify wants to expose it."""
+    out = _row_to_dict(row)
+    try:
+        out["reasons"] = json.loads(out.pop("reasons_json") or "[]")
+    except Exception:
+        out["reasons"] = []
+    try:
+        out["extra"] = json.loads(out.pop("extra_json") or "{}")
+    except Exception:
+        out["extra"] = {}
+    try:
+        out["request"] = json.loads(out.pop("request_json") or "null")
+    except Exception:
+        out["request"] = None
+    # Pretty ISO timestamp alongside the unix-seconds one.
+    try:
+        from datetime import datetime, timezone
+        out["decided_at_iso"] = (
+            datetime.fromtimestamp(int(out["decided_at"]), tz=timezone.utc).isoformat()
+        )
+    except Exception:
+        out["decided_at_iso"] = None
+    return out
+
+
+def _fetch_memo_from_tx(tx_hash: str, network: str) -> str | None:
+    """Fetch a tx from XRPL and return the MemoData hex of its first memo.
+
+    Returns None if the tx doesn't exist, has no memos, or the network is
+    unknown. Raises xrpl XRPLException subclasses on transient RPC errors
+    so the caller can surface them as 502.
+    """
+    from xrpl.clients import JsonRpcClient
+    from xrpl.models.requests import Tx
+
+    url = _VERIFY_NETWORK_URLS.get(network)
+    if url is None:
+        raise ValueError(f"unknown network: {network!r}")
+    client = JsonRpcClient(url)
+    resp = client.request(Tx(transaction=tx_hash, binary=False))
+    tx = resp.result
+    if not tx:
+        return None
+    memos = (tx.get("tx_json") or {}).get("Memos") or []
+    if not memos:
+        return None
+    return (memos[0].get("Memo") or {}).get("MemoData")
+
+
+def api_verify(
+    conn: sqlite3.Connection,
+    *,
+    memo_hex: str | None,
+    tx_hash: str | None,
+    network: str = "testnet",
+) -> tuple[dict, int]:
+    """Verify an on-chain audit memo against the local SQLite audit log.
+
+    Two entry points:
+        memo_hex=...  — paste the hex blob directly (e.g. from a block
+                        explorer); we decode it ourselves and look up by
+                        ``decision_id``.
+        tx_hash=...   — paste an XRPL tx hash; we fetch the memo from the
+                        public RPC, then look up by ``decision_id`` with a
+                        fallback to ``mirrored_tx``.
+
+    Returns (payload, http_status). The payload shape is the same for both
+    entry points, with one extra field (``on_chain_proof``) populated only
+    in the tx_hash path.
+    """
+    if not memo_hex and not tx_hash:
+        return (
+            {"error": "either memo_hex or tx_hash is required"},
+            400,
+        )
+    if memo_hex and tx_hash:
+        return (
+            {"error": "pass exactly one of memo_hex or tx_hash, not both"},
+            400,
+        )
+
+    # ---- 1. Resolve to (memo_dict, on_chain_proof) --------------------
+    memo_dict: dict | None = None
+    on_chain_proof: dict | None = None
+
+    if memo_hex:
+        try:
+            memo_dict = _decode_memo_hex(memo_hex)
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            # Both are subclasses of ValueError but have specific useful messages.
+            return {"error": f"memo decoded bytes are not valid UTF-8/JSON: {e}"}, 400
+        except ValueError as e:
+            return {"error": f"memo_hex is not valid hex: {e}"}, 400
+    else:
+        assert tx_hash is not None
+        try:
+            memo_data_hex = _fetch_memo_from_tx(tx_hash, network)
+        except ValueError as e:
+            return {"error": str(e)}, 400
+        # xrpl raises ResponseException for txnNotFound; surface as 404.
+        except Exception as e:  # noqa: BLE001 — translate any xrpl exception
+            type_name = type(e).__name__
+            if "NotFound" in type_name or "not found" in str(e).lower():
+                return {"error": f"tx not found on {network}: {tx_hash}"}, 404
+            return {"error": f"XRPL RPC error: {type_name}: {e}"}, 502
+        if memo_data_hex is None:
+            return {"error": f"tx has no memo (or not found): {tx_hash}"}, 404
+        try:
+            memo_dict = _decode_memo_hex(memo_data_hex)
+        except Exception as e:  # noqa: BLE001
+            return {"error": f"on-chain memo is malformed: {e}"}, 502
+        on_chain_proof = {
+            "tx_hash": tx_hash,
+            "network": network,
+            "explorer_url": (
+                f"https://testnet.xrpl.org/transactions/{tx_hash}"
+                if network == "testnet"
+                else f"https://xrpl.org/transactions/{tx_hash}"
+            ),
+        }
+
+    # ---- 2. Validate memo shape ---------------------------------------
+    if memo_dict.get("app") != XRPLMirror.APP_TAG:
+        return (
+            {
+                "error": (
+                    f"memo is not from {XRPLMirror.APP_TAG} "
+                    f"(got app={memo_dict.get('app')!r})"
+                ),
+                "decoded_memo": memo_dict,
+            },
+            400,
+        )
+
+    decision_id = memo_dict.get("decision_id")
+    if not decision_id:
+        return {"error": "memo has no decision_id", "decoded_memo": memo_dict}, 400
+
+    # ---- 3. Look up the local SQLite row ------------------------------
+    row = db.find_auth_decision_by_decision_id(conn, decision_id)
+    lookup_via = "decision_id"
+    if row is None and tx_hash:
+        # Pre-v0.3.2 rows don't have decision_id populated. Fall back to tx.
+        row = db.find_auth_decision_by_mirrored_tx(conn, tx_hash)
+        lookup_via = "mirrored_tx (fallback)"
+    if row is None:
+        return (
+            {
+                "verified": False,
+                "decision_id": decision_id,
+                "memo": memo_dict,
+                "on_chain_proof": on_chain_proof,
+                "lookup_via": lookup_via,
+                "error": (
+                    "memo is well-formed but no matching row in the local "
+                    "audit log. The decision may have been made by a "
+                    "different operator."
+                ),
+            },
+            404,
+        )
+
+    return (
+        {
+            "verified": True,
+            "lookup_via": lookup_via,
+            "decision_id": decision_id,
+            "memo": memo_dict,
+            "decision": _format_decision_row(row),
+            "on_chain_proof": on_chain_proof,
+        },
+        200,
+    )
+
+
+# -----------------------------------------------------------------------
 # HTTP handler
 # ---------------------------------------------------------------------------
 
@@ -333,6 +537,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if path == "/api/authz/stats":
                 since = int(qs.get("since", [str(24 * 3600)])[0])
                 return self._send_json(api_authz_stats(conn, since_seconds=since))
+            if path == "/api/verify":
+                memo_hex = qs.get("memo_hex", [None])[0]
+                tx_hash = qs.get("tx_hash", [None])[0]
+                network = qs.get("network", ["testnet"])[0]
+                payload, status = api_verify(
+                    conn,
+                    memo_hex=memo_hex,
+                    tx_hash=tx_hash,
+                    network=network,
+                )
+                return self._send_json(payload, status=status)
             if path == "/static/style.css" or path == "/static/dashboard.js":
                 name = path.split("/")[-1]
                 return self._send_static(HTML_PATH.parent / name)

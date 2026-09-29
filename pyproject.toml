@@ -1,6 +1,6 @@
 [project]
 name = "xrpl_agent_id"
-version = "0.3.0"
+version = "0.3.1"
 description = "Identity for AI agents on the XRP Ledger — W3C did:xrpl + XLS-70 Credentials"
 requires-python = ">=3.9"
 license = {text = "MIT"}

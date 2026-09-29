@@ -40,6 +40,12 @@ v0.2.x gave agents an identity. v0.3.0 decides whether that identity is
 allowed to act — and writes the decision to a place that can't be deleted.
 
 ```python
+# Note: AuthorizationPolicy / BannedAgentRegistry / AuditLog / XRPLMirror
+# live in submodules and are part of the internal surface. The curated
+# public API (AgentIdentity, Authority, Credential, TrustRegistry, ...)
+# is documented in xrpl_agent_id/PUBLIC_API.md and is what we promise
+# to keep stable. The example below uses the internal surface directly
+# for illustration — see PUBLIC_API.md for the supported entry points.
 from xrpl_agent_id.authorization import AuthorizationPolicy, RequestContext
 from xrpl_agent_id.banned import Ban, BannedAgentRegistry
 from xrpl_agent_id.audit import AuditLog, XRPLMirror
@@ -234,6 +240,10 @@ from xrpl_agent_id import (
 | `xrpl_agent_id.credential` | `Credential` — XLS-70 wrapper, issue/accept/verify | Complete, 15 tests |
 | `xrpl_agent_id.network` | Network constants + JsonRpcClient factory | Complete |
 | `xrpl_agent_id.authority` | `Authority` — issuance-only subclass of `AgentIdentity` | Complete |
+| `xrpl_agent_id.trust` | `TrustRegistry` / `TrustPolicy` — declarative credential allowlist + banlist, evaluated against an agent DID | Complete |
+| `xrpl_agent_id.authorization` | `AuthorizationPolicy` — request-level allow/deny with 6 reason codes | Complete, internal surface |
+| `xrpl_agent_id.audit` | `Journal` (SQLite) + `XRPLMirror` (1-drop on-chain audit) | Complete, internal surface |
+| `xrpl_agent_id.banned` | `Ban` + `BannedAgentRegistry` — agent deny-list, file-backed | Complete, internal surface |
 | `xrpl_agent_id.mcp` | MCP server wrapper, optional `[mcp]` extra | Planned (Week 2) |
 
 ### Design Decisions
@@ -263,6 +273,50 @@ This repository follows the [REUSE](https://reuse.software/) specification:
 - All third-party content is attributed in §2
 
 Tools like [`reuse lint`](https://github.com/fsfe/reuse-tool) will pass cleanly.
+
+### Version Surface
+
+The version of `xrpl_agent_id` is exposed in three places — pick the one that fits your context.
+
+**Python import** — for tooling and library introspection:
+
+```python
+import xrpl_agent_id
+print(xrpl_agent_id.__version__)        # → 0.3.3
+print(xrpl_agent_id.XRPL_AGENT_ID_VERSION)   # → "0.3.3" (string form, identical)
+```
+
+**CLI** — for scripts and CI smoke tests:
+
+```bash
+$ python -m xrpl_agent_id --version
+xrpl_agent_id 0.3.3
+```
+
+`--api` (the default when no flag is given) prints the version plus the public
+API surface and a DID roundtrip example.
+
+**HTTP** — when running the dashboard (`python -m xrpl_agent_id.dashboard.server`):
+
+```
+GET /api/version     → 200 application/json
+{
+  "package":         "xrpl_agent_id",
+  "package_version": "0.3.3",
+  "server_version":  "0.2.0",
+  "python_version":  "3.9.6",
+  "xrpl_py_version": "4.5.0",
+  "now":             1790725680,
+  "ok":              true
+}
+
+GET /api/liveness    → 200 {"status": "ok", "now": ...}
+GET /api/monitor     → 200 {"events": [...]}     # newest monitor events first
+GET /api/health      → 200 {"liveness": {...}, "legacy_events": [...]}  # DEPRECATED alias
+```
+
+The contract of `/api/version` is pinned by `tests/test_dashboard_version_routes.py` —
+removing or renaming a field fails the test suite.
 
 ---
 

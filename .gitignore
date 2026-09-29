@@ -27,6 +27,9 @@ seeds.json
 results/*.json
 results/
 
+# Snapshot folders (release snapshots; rebuild via build_stress_pdf.py / build_pdf.py)
+docs_snapshot_*/
+
 # PDF / build artifacts (regenerable from README.md)
 xrpl_agent_id_README.pdf
 xrpl_agent_id_README.html

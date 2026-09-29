@@ -6,6 +6,26 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-09-29
+
+### Added
+- **`/api/verify` endpoint** — `GET /api/verify?memo_hex=…` or `?tx_hash=…&network=testnet|mainnet`
+  - Takes a raw memo hex blob OR an XRPL tx hash; validates the memo `app` tag is `xrpl_agent_id_audit`
+  - Looks up the matching `auth_decisions` row by `decision_id` (preferred) or `mirrored_tx` (fallback for legacy rows)
+  - Returns full decision context: `allow`, `reasons` (with `code` + `detail` + `issuer`), `extra`, `request`, ISO timestamp, plus `on_chain_proof` (tx hash, network, explorer URL) when given a tx hash
+  - Clean error codes: `400` bad input / wrong app, `404` row or tx not found, `502` XRPL RPC failure
+- **`scripts/backfill_auth_decisions.py`** — copies decisions from a results-DB into the dashboard DB, deduping on `mirrored_tx`. Used to seed the dashboard with v0.3.1 results.
+- **`tests/test_dashboard_verify.py`** — 12 new hermetic tests covering `_decode_memo_hex` (4 cases) + direct endpoint (7 cases) + HTTP round-trip (3 cases). Total 145 offline tests passing.
+- **Schema migration helper** — `xrpl_agent_id/dashboard/db.py::_migrate()` runs idempotently on `open_db()` to add new columns (`decision_id`) before CREATE INDEX statements.
+
+### Changed
+- **`xrpl_agent_id/audit.py`** — `XRPLMirror.APP_TAG` and `SCHEMA_VERSION` promoted to module-level constants (single source of truth for memo `app`/`v` fields). New `compute_decision_id(decision)` helper exposed for reuse.
+- **`AuditLog.record()`** — now computes and stores `decision_id` (SHA-256 of canonical-JSON decision dict) at insert time, so the SQLite row and the on-chain memo always share the same `decision_id`.
+- **`xrpl_agent_id/dashboard/db.py`** — `auth_decisions` schema adds `decision_id TEXT` column + index; legacy rows can be backfilled by the new script.
+
+### Fixed
+- **§10 "known limitation" resolved** — the v0.3.1 stress report flagged that "we cannot reverse-lookup the SQLite row from the tx hash." `/api/verify?tx_hash=…` now does exactly that, including the `mirrored_tx` fallback for legacy rows that pre-date the `decision_id` column.
+
 ## [0.3.1] - 2026-09-29
 
 ### Added

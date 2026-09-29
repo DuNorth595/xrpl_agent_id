@@ -6,6 +6,12 @@ Same pipeline as build_pdf.py (pandoc → Playwright, Letter, 0.5in-equivalent
 margins, print CSS injected). Just a different source MD and a stress-test
 flavored cover/footer.
 
+Footer + cover version pinned to v0.3.2 — the document now contains a
+§10 addendum covering the v0.3.1 rerun (CONTROLLER_BANNED end-to-end)
+and a §11 addendum documenting `/api/verify` which closes the §10
+known-limitation gap (memo hex / tx hash → local decision row + on-chain
+proof).
+
 Usage:
     /usr/bin/python3 build_stress_pdf.py
 """
@@ -195,14 +201,14 @@ div.sourceCode pre {
 COVER_HTML = """
 <div class="cover">
   <h1 class="title">xrpl_agent_id — Live Testnet Stress Test</h1>
-  <div class="tagline">v0.3.0 · 6 agents · 12 ledger transactions verified</div>
+  <div class="tagline">v0.3.2 · 6 agents · 12 ledger transactions verified · /api/verify resolves §10 known-limitation</div>
   <div class="meta">XRPL Testnet · s.altnet.rippletest.net · MIT License · S_DevLabs</div>
 </div>
 """
 
 FOOTER_HTML = """
 <div class="footer">
-  xrpl_agent_id v0.3.0 — live testnet stress test report — 2026-09-29 UTC
+  xrpl_agent_id v0.3.2 — live testnet stress test report — 2026-09-29 UTC
 </div>
 """
 

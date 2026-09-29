@@ -90,13 +90,18 @@ CREATE TABLE IF NOT EXISTS auth_decisions (
     request_json  TEXT,
     agent_record  TEXT,
     extra_json    TEXT,
-    mirrored_tx   TEXT
+    mirrored_tx   TEXT,
+    decision_id   TEXT                    -- sha256(canonical JSON of decision),
+                                          -- matches the value embedded in the
+                                          -- XRPL audit-mirror memo
 );
 
 CREATE INDEX IF NOT EXISTS idx_ad_agent    ON auth_decisions(agent_did);
 CREATE INDEX IF NOT EXISTS idx_ad_decided  ON auth_decisions(decided_at);
 CREATE INDEX IF NOT EXISTS idx_ad_allow    ON auth_decisions(allow);
 CREATE INDEX IF NOT EXISTS idx_ad_request  ON auth_decisions(request_id);
+CREATE INDEX IF NOT EXISTS idx_ad_decid    ON auth_decisions(decision_id);
+CREATE INDEX IF NOT EXISTS idx_ad_mirtx    ON auth_decisions(mirrored_tx);
 """
 
 
@@ -107,11 +112,40 @@ def open_db(path: Path) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
+    # Column migrations must run BEFORE the schema (which references the new
+    # columns in CREATE INDEX statements).
+    _migrate(conn)
     for stmt in SCHEMA.strip().split(";"):
         s = stmt.strip()
         if s:
             conn.execute(s)
     return conn
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Idempotent column adds for upgrades over existing DBs.
+
+    ``CREATE TABLE IF NOT EXISTS`` does not alter existing tables, so when
+    a new column is introduced (e.g. ``decision_id`` in v0.3.2) we add it
+    here on a best-effort basis. SQLite raises OperationalError if the
+    column already exists, which we ignore.
+
+    Pre-v0.3.2 rows will have ``decision_id IS NULL`` — that's expected.
+    The ``/api/verify`` endpoint falls back to ``mirrored_tx`` lookup when
+    the decision_id isn't present. No backfill is attempted because
+    ``decision_id`` is a content hash of the full AuthorizationDecision
+    dict at evaluation time, which cannot be reconstructed from the
+    SQLite row alone.
+    """
+    migrations: list[tuple[str, str]] = [
+        ("auth_decisions", "decision_id TEXT"),
+    ]
+    for table, col_def in migrations:
+        try:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {col_def}")
+        except sqlite3.OperationalError:
+            pass  # already exists — fine
+
 
 
 # -----------------------------------------------------------------------
@@ -244,18 +278,21 @@ def insert_auth_decision(
     agent_record: str | None,
     extra_json: str | None,
     mirrored_tx: str | None,
+    decision_id: str | None = None,
 ) -> int:
     """Insert one authorization decision row. Returns new row id."""
     cur = conn.execute(
         """
         INSERT INTO auth_decisions (
             decided_at, request_id, agent_did, allow, reasons_json,
-            summary, request_json, agent_record, extra_json, mirrored_tx
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            summary, request_json, agent_record, extra_json, mirrored_tx,
+            decision_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             decided_at, request_id, agent_did, 1 if allow else 0, reasons_json,
             summary, request_json, agent_record, extra_json, mirrored_tx,
+            decision_id,
         ),
     )
     return cur.lastrowid or 0
@@ -316,3 +353,25 @@ def auth_decision_stats(conn: sqlite3.Connection, since: int | None = None) -> d
         params,
     ).fetchone()["c"]
     return {"total": total, "allowed": allowed, "denied": total - allowed}
+
+
+def find_auth_decision_by_decision_id(
+    conn: sqlite3.Connection, decision_id: str
+) -> sqlite3.Row | None:
+    """Look up the auth_decisions row whose decision_id matches."""
+    return conn.execute(
+        "SELECT * FROM auth_decisions WHERE decision_id = ? LIMIT 1",
+        (decision_id,),
+    ).fetchone()
+
+
+def find_auth_decision_by_mirrored_tx(
+    conn: sqlite3.Connection, tx_hash: str
+) -> sqlite3.Row | None:
+    """Fallback lookup keyed by mirrored tx hash (used for pre-v0.3.2 rows
+    that don't have a decision_id column populated)."""
+    return conn.execute(
+        "SELECT * FROM auth_decisions WHERE mirrored_tx = ? LIMIT 1",
+        (tx_hash,),
+    ).fetchone()
+

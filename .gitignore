@@ -44,6 +44,13 @@ _stress_cover.html
 _stress_footer.html
 _stress_print_css.html
 
+# Generic doc PDF build artifacts (regenerable from any docs/*.md via build_doc_pdf.py)
+xrpl_agent_id_USE_CASES.*
+xrpl_agent_id_QUICKSTART.*
+_doc_cover.html
+_doc_footer.html
+_doc_css.html
+
 # Preview screenshots from PDF build
 preview_*.png
 

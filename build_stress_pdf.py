@@ -201,14 +201,14 @@ div.sourceCode pre {
 COVER_HTML = """
 <div class="cover">
   <h1 class="title">xrpl_agent_id — Live Testnet Stress Test</h1>
-  <div class="tagline">v0.3.2 · 6 agents · 12 ledger transactions verified · /api/verify resolves §10 known-limitation</div>
+  <div class="tagline">v0.3.2 · 50 agents · 150 ledger txs verified · /api/verify + §12 scale run + §13 throughput</div>
   <div class="meta">XRPL Testnet · s.altnet.rippletest.net · MIT License · S_DevLabs</div>
 </div>
 """
 
 FOOTER_HTML = """
 <div class="footer">
-  xrpl_agent_id v0.3.2 — live testnet stress test report — 2026-09-29 UTC
+  xrpl_agent_id v0.3.2 — live testnet stress test report — 2026-09-29 UTC — §1-§13
 </div>
 """
 

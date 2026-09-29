@@ -137,3 +137,62 @@ The README's Quickstart example uses `Journal` (from `audit.py`) — but `Journa
 ### Next steps
 - See `results/` for live testnet run output and on-ledger artifacts
 - See `docs/01_issuance_flow.md` (pending) for narrative documentation
+
+---
+
+## v0.3.3 session (2026-09-30) — items #3 + #4
+
+### Item #3: Lock public API surface (REAL this time)
+Earlier session claimed this was done — it was not. No commit, no PUBLIC_API.md,
+no test_public_api.py existed before this turn.
+
+**Actual deliverables (this turn, verified):**
+- `xrpl_agent_id/__init__.py`: added `XRPL_AGENT_ID_VERSION` (string alias)
+  and `XRPL_AGENT_ID_VERSION_INFO` ((0,3,3) tuple) to `__all__`.
+- `xrpl_agent_id/PUBLIC_API.md`: 79-line contract doc listing every public
+  name with stability policy and explicit "what is NOT public" list.
+- `tests/test_public_api.py`: 23-test contract pin (per-name import check,
+  `__all__` ↔ `hasattr` roundtrip, version alias sync, version_info tuple).
+- `README.md`: added caveat to the example noting internal vs. public
+  surface split; expanded Module Map to cover trust/authorization/audit/banned
+  submodules explicitly.
+
+**Public surface as of v0.3.3:**
+AgentIdentity, Authority, Credential, CredentialType, DIDDocument,
+NetworkEndpoint, VerificationResult, NETWORK_IDS, NETWORKS,
+did_from_account, parse_did, resolve_did, get_client, get_network,
+TrustCheckResult, TrustPolicy, TrustRegistry, XRPL_AGENT_ID_VERSION,
+XRPL_AGENT_ID_VERSION_INFO.
+
+**Internal surface (submodule only, not part of contract):**
+AuthorizationPolicy, BannedAgentRegistry, Journal, AuditLog, XRPLMirror,
+Ban, AgentRegistry, AgentRecord — reachable via
+`from xrpl_agent_id.<submodule> import ...`.
+
+### Item #4: /version endpoint (three surfaces)
+
+**Python import** — `xrpl_agent_id.__version__`, `XRPL_AGENT_ID_VERSION`,
+`XRPL_AGENT_ID_VERSION_INFO` all exported and pinned.
+
+**CLI** — `python -m xrpl_agent_id --version` prints `xrpl_agent_id 0.3.3`.
+Added argparse; `--api` flag restores original smoke-test behaviour.
+
+**HTTP** — dashboard now serves:
+- `GET /api/version` — structured version + runtime info (pinned by
+  `tests/test_dashboard_version_routes.py`)
+- `GET /api/liveness` — real liveness ping (DB reachable check)
+- `GET /api/monitor` — monitor events (successor to misnamed /api/health)
+- `GET /api/health` — DEPRECATED alias, returns both liveness and legacy
+  monitor events for backward compat
+
+**Version bumps this session:**
+- `pyproject.toml`: 0.3.1 → 0.3.3
+- `xrpl_agent_id/__init__.py`: 0.3.2 → 0.3.3
+- `dashboard/server.py server_version`: 0.1.0 → 0.2.0 (new routes)
+
+**Note on `xrpl.__version__`:** xrpl-py 4.5.0 has no `__version__` attribute.
+Use `importlib.metadata.version("xrpl-py")` instead. The dashboard does this.
+
+### Final state
+- 195/195 tests passing (172 prior + 23 new public-API pin tests)
+- Working tree clean, ready to commit

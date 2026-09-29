@@ -4,6 +4,60 @@ Session log for `xrpl_agent_id`. Working entries are at the top.
 
 ---
 
+## Session: 2026-09-29 (evening — v0.3.3 Quickstart + API audit started)
+
+**Goal:** Continue v0.3.3 — finish item #2 (Quickstart) on the real public API surface, with verified tests pinning the documented code.
+
+**What got done this session:**
+
+- ✅ **Item #2 — Quickstart shipped** (commit `41db40c`)
+  - `docs/QUICKSTART.md` (270 lines) walks a reader from `pip install` → issuance → acceptance → trust check → decision in ~5 min
+  - Uses **real** public API: `AgentIdentity.from_seed`, `Authority`, `CredentialType.VERIFIED_AGENT_OPERATOR.value.encode("utf-8")`, `TrustRegistry.require` / `.deny` / `.check`
+  - **No dashboard mentions** — the library is the product surface (item #1 framing held)
+  - Output examples use `did:xrpl:2:` prefix (testnet) per `xrpl_agent_id/did.py:32-33`
+
+- ✅ **Smoke tests pinned** (commit `41db40c`)
+  - `tests/_smoke/test_quickstart_api.py` — 7 tests that exercise every code block in the Quickstart
+  - `test_summary_format_matches_doc` pins the documented output strings against the real `TrustCheckResult.summary()` implementation
+  - All 7 pass; full suite: 158/158
+
+- ✅ **PDF built + sent to Telegram**
+  - `xrpl_agent_id_QUICKSTART.pdf` (286 KB, 6 pages) via `build_doc_pdf.py`
+  - Sent to Home channel: msg **113404**
+
+**What I caught while writing it (kept me honest):**
+
+- `CredentialType` is a closed enum with 3 values (`AGENT_ID_V1`, `VERIFIED_AGENT_OPERATOR`, `EVAL_PASSED`) — there is **no `flags=` parameter** and **no `KYC` value**. Earlier draft of the Quickstart had both wrong. Fixed.
+- `credential_type` is passed as **bytes** — `CredentialType.X.value.encode("utf-8")`. Passing the enum directly is wrong. Fixed.
+- Network IDs in `xrpl_agent_id`: mainnet=**1**, testnet=**2** (per XLS-40d). Earlier draft's output examples had `did:xrpl:1:` for testnet — wrong on both counts. Fixed.
+
+**Item #3 (Lock public API surface) — start state:**
+
+The package has **two parallel APIs** in flight:
+1. **v0.2-era surface** (currently in `__init__.py`'s `__all__`): `AgentIdentity`, `Authority`, `Credential`, `DIDDocument`, `TrustPolicy`, `TrustRegistry`, etc. — these are the names the Quickstart uses.
+2. **v0.3-era internals** (submodules but NOT exported): `authorization.py`, `audit.py`, `banned.py`, `registry.py` — these contain the load-bearing policy/audit/ban layer but aren't reachable from `import xrpl_agent_id`.
+
+The README's Quickstart example uses `Journal` (from `audit.py`) — but `Journal` isn't in `__all__`. So the README is *already broken* against the current package. The "lock public API" item needs to decide: (a) expose the v0.3 modules at top-level, or (b) drop them from the docs until they're stable. Today's Quickstart takes path (b) — only uses what's actually in `__all__`.
+
+**Status (cumulative v0.3.3):**
+
+| Item | Status | Commit |
+|---|---|---|
+| 1. Use-cases doc | ✅ Done | `44a59db` |
+| 2. Quickstart | ✅ Done | `41db40c` |
+| 3. Lock public API surface | 🔧 In progress — API gap found | — |
+| 4. `/version` endpoint | Pending | — |
+| 5. Mainnet decision | Pending | — |
+| 6. `pyproject.toml` publish dry-run | Pending | — |
+
+**Health:**
+- Tests 158/158 passing (151 prior + 7 new smoke tests)
+- Working tree clean at `41db40c`
+- PDFs in Telegram: Use Cases (msg 113280), Quickstart (msg 113404)
+- Snapshot: needs refresh after item #3 ships
+
+---
+
 ## Session: 2026-09-29 (v0.3.3 planning + use-cases doc)
 
 **Goal:** Lay foundations for v0.3.3 — the release that makes `xrpl_agent_id` presentable to external users (long-term) while keeping the dev-tool character of the dashboard.

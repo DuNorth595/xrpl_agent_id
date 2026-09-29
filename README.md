@@ -13,15 +13,15 @@
 
 ## Cover Page
 
-**Package:** `xrpl_agent_id`
-**Version:** 0.2.0 (beta)
-**Author:** Justin Douglas
-**Organization:** S_DevLabs (Strategic Development Labs)
-**Contact:** S_DevLabs@outlook.com
-**License:** MIT
-**Python:** ≥ 3.9
-**Dependencies:** `xrpl-py` ≥ 4.5.0
-**Optional extras:** `mcp` (for MCP server wrapper, see §4)
+| **Package:** `xrpl_agent_id`
+|**Version:** 0.3.0 (beta)
+|**Author:** Justin Douglas
+|**Organization:** S_DevLabs (Strategic Development Labs)
+|**Contact:** S_DevLabs@outlook.com
+|**License:** MIT
+|**Python:** ≥ 3.9
+|**Dependencies:** `xrpl-py` ≥ 4.5.0
+|**Optional extras:** `mcp` (for MCP server wrapper, see §4)
 
 **What this is in one sentence:**
 A small Python library that gives AI agents an XRPL-native identity — a `did:xrpl` identifier, a W3C DID Document, and a way to issue / accept / verify XLS-70 Verifiable Credentials, all stored on the XRP Ledger.
@@ -29,6 +29,63 @@ A small Python library that gives AI agents an XRPL-native identity — a `did:x
 **What this is NOT:**
 A key-management system, a privacy layer, a wallet, or a replacement for OIDC/SAML.
 Credentials on XRPL are public. Bring your own keys. Use `xrpl-py`'s `Wallet`.
+
+---
+
+## What's new in v0.3.0
+
+**Authorization policy layer + on-chain audit mirror.**
+
+v0.2.x gave agents an identity. v0.3.0 decides whether that identity is
+allowed to act — and writes the decision to a place that can't be deleted.
+
+```python
+from xrpl_agent_id.authorization import AuthorizationPolicy, RequestContext
+from xrpl_agent_id.banned import Ban, BannedAgentRegistry
+from xrpl_agent_id.audit import AuditLog, XRPLMirror
+from xrpl.wallet import Wallet
+
+policy = AuthorizationPolicy()
+policy.require_credential(
+    issuer="rIssuer...",  # must hold an "agent_identity_v1" credential from this issuer
+    credential_type=b"agent_identity_v1",
+)
+bans = BannedAgentRegistry()
+bans.add(Ban(address="rBadAgent...", reason="abuse report #4421", added_by="ops"))
+
+policy = AuthorizationPolicy(bans=bans)
+
+decision = policy.evaluate("rAgent...", context=RequestContext(resource="/api/transfer"))
+assert decision.allow is False
+assert decision.reasons[0].code.name == "AGENT_BANNED"
+
+# Every decision lands in SQLite. Optionally also on-chain:
+mirror = XRPLMirror.from_seed("sEd...", network="testnet")
+audit = AuditLog(db_path="audit.db", xrpl_mirror=mirror)
+audit.record(decision)  # -> a 1-drop Payment tx with the decision hash as a memo
+```
+
+**Highlights**
+
+- **6 stable reason codes** — `OK`, `AGENT_BANNED`, `CONTROLLER_BANNED`,
+  `NO_CREDENTIALS`, `CREDENTIAL_MISSING`, `CREDENTIAL_REVOKED`,
+  `STALE_CREDENTIAL`
+- **Off-chain or on-chain** audit: SQLite by default, opt-in XRPL mirror
+  (1-drop self-payment, decision hash as memo)
+- **Live-tested on XRPL Testnet** — 12 transactions verified end-to-end.
+  Full report at [`docs/STRESS_TEST_v0.3.0.md`](docs/STRESS_TEST_v0.3.0.md)
+- **124 offline tests passing** (was 47 in v0.2.4) — every ledger interaction
+  is mocked so CI doesn't need testnet access
+
+**New files**
+
+- `xrpl_agent_id/authorization.py` — the policy
+- `xrpl_agent_id/registry.py` — resolves any DID to its full ledger state
+- `xrpl_agent_id/banned.py` — deny-list with reasons + expirations
+- `xrpl_agent_id/audit.py` — SQLite + on-chain mirror
+- `scripts/stress_harness.py` — offline, 12 roles, mocked ledger
+- `scripts/stress_harness_live.py` — `RUN_LIVE=1` for real testnet
+- `scripts/restart_dashboard.sh` — kill stale, start fresh
 
 ---
 

@@ -6,6 +6,53 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-29
+
+### Added
+- **Authorization layer** — `xrpl_agent_id/authorization.py` composes
+  registry, bans, and require/deny rules into a single `AuthorizationPolicy`
+  that returns ALLOW/DENY with stable reason codes
+  (`OK`, `AGENT_BANNED`, `CONTROLLER_BANNED`, `NO_CREDENTIALS`,
+  `CREDENTIAL_MISSING`, `CREDENTIAL_REVOKED`, `STALE_CREDENTIAL`)
+- **Agent registry** — `xrpl_agent_id/registry.py` resolves any DID/address
+  to its full ledger state (DID, controllers via SignerList, all credentials
+  via `AccountObjects type=credential`)
+- **Banned agent registry** — `xrpl_agent_id/banned.py` org-level deny list
+  with reasons + expirations + JSON persistence
+- **Audit log with XRPL mirror** — `xrpl_agent_id/audit.py` SQLite-backed
+  decision log + optional on-chain memo mirror (1-drop self-payment with
+  decision hash, `Memos[0].MemoData`)
+- **Stress harness (offline + live)**
+  - `scripts/stress_harness.py` — `sim` mode with mocked ledger, 12 roles
+  - `scripts/stress_harness_live.py` — real testnet, mixed roles, full audit
+    mirror end-to-end. Graceful degradation on transient ledger errors.
+- **Dashboard authz panel** — `/api/authz/events` and `/api/authz/stats`
+  endpoints feed the dashboard's Authorization Decisions section
+  (count cards + visual ALLOW/DENY bar + per-decision list with role tags
+  and reason chips)
+- **Dashboard restart script** — `scripts/restart_dashboard.sh` kills stale
+  PIDs and restarts the dashboard with the current source tree
+- **Stress test report** — `docs/STRESS_TEST_v0.3.0.md` documents the live
+  run with all 12 tx hashes (6 CredentialCreate/Accept + 6 audit-mirror memos)
+  verified on `s.altnet.rippletest.net:51234`
+
+### Changed
+- `xrpl_agent_id/trust.py` — `_get_agent_credentials` no longer a stub;
+  uses real ledger enumeration via `xrpl.models.requests.AccountObjects`
+- `xrpl_agent_id/dashboard/server.py` — new endpoints; reads from the same
+  `xrpl_agent_id_dashboard.db` that the harness writes to
+
+### Fixed
+- `audit.XRPLMirror.submit()` — XRP rejects self-payments and rejects
+  0-XRP to non-ACCountRoot destinations. Now funds a separate sink wallet
+  and sends a 1-drop payment. Switched from `xrpl.core.hash` (not in 4.5.0)
+  to stdlib `hashlib.sha256`.
+
+### Test coverage
+- **124 offline tests pass, 6 skipped** (was 47 before v0.3.0)
+- All ledger interactions mocked; CI-safe
+- Live harness is the only network-touching path
+
 ## [0.2.4] - 2026-09-28
 
 ### Changed

@@ -204,6 +204,47 @@ def api_files() -> dict:
     }
 
 
+def api_authz_events(conn: sqlite3.Connection, limit: int = 50, agent_did: str | None = None, allow: bool | None = None) -> list[dict]:
+    """Recent authorization decisions, newest first."""
+    rows = db.list_auth_decisions(
+        conn,
+        agent_did=agent_did,
+        allow=allow,
+        limit=limit,
+    )
+    out = []
+    for r in rows:
+        d = _row_to_dict(r)
+        # Parse reasons_json into a Python list for the frontend
+        try:
+            d["reasons"] = json.loads(d.pop("reasons_json") or "[]")
+        except Exception:
+            d["reasons"] = []
+        try:
+            d["extra"] = json.loads(d.pop("extra_json") or "{}")
+        except Exception:
+            d["extra"] = {}
+        try:
+            d["request"] = json.loads(d.pop("request_json") or "null")
+        except Exception:
+            d["request"] = None
+        out.append(d)
+    return out
+
+
+def api_authz_stats(conn: sqlite3.Connection, since_seconds: int = 24 * 3600) -> dict:
+    """Aggregate stats for the authorization layer.
+
+    Args:
+        since_seconds: window size in seconds; stats cover decisions in this window.
+    """
+    since = int(time.time()) - since_seconds
+    return {
+        "window_seconds": since_seconds,
+        **db.auth_decision_stats(conn, since=since),
+    }
+
+
 # -----------------------------------------------------------------------
 # HTTP handler
 # ---------------------------------------------------------------------------
@@ -281,6 +322,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             if path == "/api/health":
                 limit = int(qs.get("limit", ["25"])[0])
                 return self._send_json({"events": api_health(conn, limit=limit)})
+            if path == "/api/authz/events":
+                limit = int(qs.get("limit", ["50"])[0])
+                agent = qs.get("agent_did", [None])[0]
+                allow_q = qs.get("allow", [None])[0]
+                allow = None
+                if allow_q is not None:
+                    allow = allow_q.lower() in ("1", "true", "yes")
+                return self._send_json({"events": api_authz_events(conn, limit=limit, agent_did=agent, allow=allow)})
+            if path == "/api/authz/stats":
+                since = int(qs.get("since", [str(24 * 3600)])[0])
+                return self._send_json(api_authz_stats(conn, since_seconds=since))
             if path == "/static/style.css" or path == "/static/dashboard.js":
                 name = path.split("/")[-1]
                 return self._send_static(HTML_PATH.parent / name)

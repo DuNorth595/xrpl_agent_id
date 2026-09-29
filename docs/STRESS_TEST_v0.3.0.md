@@ -184,10 +184,15 @@ now works end-to-end and is exercisable via `RUN_LIVE=1`.
 
 ## 9. What's next
 
-- Add on-chain multi-sig to the controller_banned path so the live harness
-  can exercise `CONTROLLER_BANNED` for real, not just in unit tests.
-- Run a 50-agent stress to characterize ledger performance under load
+- [x] **Add on-chain multi-sig to the controller_banned path so the live harness
+  can exercise `CONTROLLER_BANNED` for real, not just in unit tests.**
+  Done in v0.3.1. See `docs/CONTROLLER_BANNED_MULTISIG.md` for the design.
+  Two shapes supported: `compromised` (banned addr is the sole signer,
+  realistic compromise) and `quarantined` (banned + sentinel, quorum 2,
+  account is operationally frozen). Both verified live on testnet
+  via `scripts/live_signerlist_smoke.py`.
+- [ ] Run a 50-agent stress to characterize ledger performance under load
   (target: 8s/decision median).
-- Add a `/api/verify` endpoint to the dashboard that takes a memo hex and
+- [ ] Add a `/api/verify` endpoint to the dashboard that takes a memo hex and
   returns the matching local SQLite row (so anyone can verify a memo
   without owning the DB).

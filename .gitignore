@@ -34,6 +34,12 @@ xrpl_agent_id_README_via_pandoc.html
 _cover.html
 _footer.html
 _print_css.html
+# Stress-test PDF build artifacts (regenerable from docs/STRESS_TEST_v0.3.0.md)
+xrpl_agent_id_STRESS_*.pdf
+xrpl_agent_id_STRESS_*.html
+_stress_cover.html
+_stress_footer.html
+_stress_print_css.html
 
 # Preview screenshots from PDF build
 preview_*.png

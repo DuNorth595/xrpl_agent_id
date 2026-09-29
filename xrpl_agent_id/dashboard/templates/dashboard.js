@@ -57,13 +57,15 @@ function setConnState(ok, msg) {
 
 async function refresh() {
   try {
-    const [summary, creds, ids, watch, agents, health] = await Promise.all([
+    const [summary, creds, ids, watch, agents, health, authz, authzStats] = await Promise.all([
       getJSON("/api/summary"),
       getJSON("/api/credentials?limit=25"),
       getJSON("/api/identities?limit=25"),
       getJSON("/api/watchlist"),
       getJSON("/api/agent_state"),
       getJSON("/api/health?limit=15"),
+      getJSON("/api/authz/events?limit=20"),
+      getJSON("/api/authz/stats"),
     ]);
 
     // Summary
@@ -71,6 +73,24 @@ async function refresh() {
     $("stat-cred").textContent = summary.credential_events ?? 0;
     $("stat-watch").textContent = summary.watchlist_count ?? 0;
     $("stat-when").textContent = fmtTime(summary.now);
+
+    // Authz summary stats + visual bar
+    $("stat-authz-total").textContent = authzStats.total ?? 0;
+    $("stat-authz-allow").textContent = authzStats.allowed ?? 0;
+    $("stat-authz-deny").textContent  = authzStats.denied  ?? 0;
+    const total = authzStats.total || 0;
+    const allowPct = total > 0 ? (authzStats.allowed / total) * 100 : 0;
+    const denyPct  = total > 0 ? (authzStats.denied  / total) * 100 : 0;
+    const bar = $("authz-bar");
+    if (total > 0) {
+      bar.hidden = false;
+      $("authz-bar-allow").style.flex = `${allowPct} 0 0`;
+      $("authz-bar-allow").textContent = allowPct >= 12 ? `ALLOW ${authzStats.allowed}` : "";
+      $("authz-bar-deny").style.flex  = `${denyPct} 0 0`;
+      $("authz-bar-deny").textContent  = denyPct >= 12 ? `DENY ${authzStats.denied}` : "";
+    } else {
+      bar.hidden = true;
+    }
 
     // Agents — split into three columns by role (subject / issuer / evaluator).
     // Multiple agents can land in the same column (e.g. two issuers).
@@ -190,6 +210,39 @@ async function refresh() {
         </tr>`
       )
       .join("") || '<tr><td colspan="2" class="empty">no monitor events yet</td></tr>';
+
+    // Authorization decisions list
+    const authzList = $("authz-list");
+    const events = authz.events || [];
+    if (events.length === 0) {
+      authzList.innerHTML = `<div class="empty">No authorization decisions yet. Run the stress harness or evaluate an agent to populate this panel.</div>`;
+    } else {
+      authzList.innerHTML = events
+        .map((d) => {
+          const pillClass = d.allow ? "pill pill-allow" : "pill pill-deny";
+          const pillText = d.allow ? "ALLOW" : "DENY";
+          const reasonTags = (d.reasons || [])
+            .map((r) => {
+              const cls = r.code === "OK" ? "reason-tag allow" : "reason-tag deny";
+              return `<span class="${cls}" title="${r.detail || ""}">${r.code}</span>`;
+            })
+            .join("");
+          const didShort = (d.agent_did || "").length > 50
+            ? d.agent_did.slice(0, 47) + "…"
+            : (d.agent_did || "—");
+          const role = (d.extra && d.extra.role) ? d.extra.role : "—";
+          return `<div class="authz-row">
+            <span class="when">${fmtTime(d.decided_at)}</span>
+            <span class="${pillClass}">${pillText}</span>
+            <span class="summary-text">
+              <span class="muted">[${role}]</span>
+              ${didShort}
+              ${reasonTags}
+            </span>
+          </div>`;
+        })
+        .join("");
+    }
 
     lastSuccessfulFetch = Math.floor(Date.now() / 1000);
     lastEventCount = (health.events || []).length;

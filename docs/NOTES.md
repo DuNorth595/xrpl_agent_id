@@ -14,7 +14,7 @@ Session log for `xrpl_agent_id`. Working entries are at the top.
 - v0.3.2 (this session's parent release) is done: 160/160 tests, 50-agent + 1000-tx runs, stress PDF at `xrpl_agent_id_STRESS_v032.pdf`.
 
 **v0.3.3 scope (6 items):**
-1. External use-cases doc — sharpens the library-vs-dashboard framing
+1. ✅ External use-cases doc — sharpens the library-vs-dashboard framing
 2. Quickstart — library-only, no dashboard mention, PDF via existing Playwright pipeline
 3. Lock public API surface — `@experimental` decorators on unstable bits
 4. `/version` endpoint — single source = `xrpl_agent_id.__version__`
@@ -29,6 +29,26 @@ Session log for `xrpl_agent_id`. Working entries are at the top.
 - Code commits: each v0.3.3 item gets its own commit with conventional message
 - Snapshots: refresh `docs_snapshot_<date>/` at v0.3.3 release
 - Telegram: PDF of Quickstart + use-cases doc at release time
+
+### Progress (this entry)
+
+**Item #1 — USE_CASES.md ✅**
+- File: `docs/USE_CASES.md` (8.7 KB)
+- PDF: `xrpl_agent_id_USE_CASES.pdf` (270 KB, 5 pages) via `build_doc_pdf.py`
+- Telegram: sent to Home channel, msg 113280
+- Commit: `44a59db` (USE_CASES.md) + `81c8cf1` (build_doc_pdf.py + .gitignore)
+
+**Refactor — `build_doc_pdf.py`**
+- New generic MD→PDF builder, parameterized by `--src / --out / --title / --tagline / --version`
+- Reuses `build_pdf.py`'s PRINT_CSS verbatim (Letter, 0.65in margins, XRPL-blue accent, code-block styling, alternating-row tables)
+- Discovered pandoc gfm identifier quirk: em-dash (U+2014) consumes adjacent whitespace and produces `--`, not the obvious `--space--space--`. Empirical test cases live in the `slugify_h1()` docstring.
+- `.gitignore` extended: `xrpl_agent_id_USE_CASES.*`, `_doc_*.html` scratch files
+
+**Tests:** 160/160 passing (no change from v0.3.2; this commit is docs + tooling only)
+
+**Snapshot:** `docs_snapshot_20260930/` — refreshed with USE_CASES.md, NOTES.md, USE_CASES.pdf
+
+**Next:** Quickstart (#2) — natural follow-on since `build_doc_pdf.py` is now ready.
 
 ---
 

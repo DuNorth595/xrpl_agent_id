@@ -271,7 +271,7 @@ def main():
     parser.add_argument("--wallets", type=int, default=1, help="number of signing wallets to round-robin across (default 1)")
     parser.add_argument("--network", type=str, default="testnet", choices=["testnet", "mainnet"], help="XRPL network")
     args = parser.parse_args()
-    summary = run_throughput(args.n, args.n_wallets, args.network)
+    summary = run_throughput(args.n, args.wallets, args.network)
     sys.exit(0 if summary["n_failed"] == 0 else 1)
 
 

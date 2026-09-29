@@ -36,7 +36,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from xrpl.wallet import Wallet
 from xrpl.transaction import submit_and_wait  # noqa: F401  (used in _submit_with_retry)
-from xrpl.models.transactions import Payment, Memo  # noqa: F401  (used in _build_mirror_tx)
+from xrpl.models.transactions import (
+    Payment,
+    Memo,
+    SignerListSet,
+    SignerEntry,
+)  # noqa: F401
 
 from xrpl_agent_id import AgentIdentity, Authority, CredentialType
 from xrpl_agent_id.audit import AuditLog
@@ -95,6 +100,18 @@ class LiveAgentSpec:
     seed: str = ""
     controller_banned_address: str = ""
     controller_banned_seed: str = ""
+    # Only set when shape='quarantined': a clean co-signer whose presence
+    # raises quorum to 2 (operationally freezes the account).
+    controller_banned_sentinel_address: str = ""
+    controller_banned_sentinel_seed: str = ""
+    # 'compromised' (default) — banned addr is the sole signer (realistic
+    #                       compromise, full authority over the account).
+    # 'quarantined'         — banned + sentinel at 1:1 weights, quorum 2
+    #                       (account is operationally dead but detection
+    #                       still fires).
+    # Only meaningful when role == 'controller_banned'.
+    controller_banned_shape: str = "compromised"
+    controller_banned_signerlist_tx: str = ""  # hash of the SignerListSet
     # Set when setup fails after retries; the agent is rolled to no_creds
     # and these fields record what role it was supposed to be.
     degraded_from: str = ""
@@ -193,6 +210,97 @@ def _issue_and_accept_credential(
     return issued, accept_tx
 
 
+def _setup_controller_banned_onchain(
+    agent_seed: str,
+    agent_address: str,
+    banned_address: str,
+    sentinel_address: str | None,
+    shape: str = "compromised",
+) -> str:
+    """Publish a SignerListSet on the agent account that includes a banned
+    controller. Returns the SignerListSet tx hash.
+
+    IMPORTANT: XRPL forbids the master account from appearing in its own
+    SignerList — only OTHER accounts can be co-signers. So the master key
+    is always implicitly the lone signer until a SignerListSet is published,
+    at which point the SignerList replaces it. That means:
+
+      shape='compromised' (default): master removed; banned address is the
+                  SOLE signer at weight 1, quorum 1. Realistic compromise
+                  scenario — banned addr has full authority over the account.
+                  AgentRegistry resolves controllers = [banned_addr];
+                  AuthorizationPolicy fires CONTROLLER_BANNED.
+
+      shape='quarantined':  master removed; banned + a clean sentinel, each
+                  at weight 1, quorum 2. Both must sign → operationally
+                  dead, but detection still works because AgentRegistry sees
+                  the banned co-signer as a controller. sentinel_address
+                  MUST be provided when shape='quarantined'.
+
+    The sentinel seed is never used to sign anything in this harness
+    (quorum 2 is unreachable since the master is gone). It's recorded on
+    the spec purely for audit reproducibility.
+
+    Args:
+        agent_seed:    seed of the agent's master key (signs the SignerListSet).
+        agent_address: agent account r-address.
+        banned_address:r-address of the banned co-signer.
+        sentinel_address: required for 'quarantined'; ignored for 'compromised'.
+        shape:         'compromised' (default) or 'quarantined'.
+
+    Raises:
+        ValueError: if shape is unrecognized or sentinel missing for quarantined.
+        RuntimeError: if submit_and_wait returns a non-success result, or
+                      if the seed doesn't match the agent_address.
+    """
+    if shape not in ("compromised", "quarantined"):
+        raise ValueError(f"unknown controller_banned_shape: {shape!r}")
+    if shape == "quarantined" and not sentinel_address:
+        raise ValueError("shape='quarantined' requires a sentinel_address")
+
+    master = Wallet.from_seed(agent_seed)
+    if master.address != agent_address:
+        # Sanity: the agent_seed we were given should match the agent_address
+        # we already funded. If they diverge, refuse rather than silently
+        # publish a signerlist on the wrong account.
+        raise RuntimeError(
+            f"seed/address mismatch: seed yields {master.address}, "
+            f"expected {agent_address}"
+        )
+
+    if shape == "compromised":
+        # Master removed; banned address is the only signer.
+        signer_entries = [
+            SignerEntry(account=banned_address, signer_weight=1),
+        ]
+        signer_quorum = 1
+    else:  # 'quarantined'
+        # Master removed; banned + sentinel, both weight 1, quorum 2.
+        signer_entries = [
+            SignerEntry(account=banned_address, signer_weight=1),
+            SignerEntry(account=sentinel_address, signer_weight=1),  # type: ignore[arg-type]
+        ]
+        signer_quorum = 2
+
+    tx = SignerListSet(
+        account=master.address,
+        signer_quorum=signer_quorum,
+        signer_entries=signer_entries,
+    )
+
+    client = get_client("testnet")
+    response = submit_and_wait(tx, client, master)
+    result = response.result or {}
+    tx_hash = result.get("hash", "") or ""
+    engine_result = (result.get("meta") or {}).get("TransactionResult")
+    if engine_result != "tesSUCCESS":
+        raise RuntimeError(
+            f"SignerListSet did not tesSUCCESS: result={engine_result}, "
+            f"hash={tx_hash}, full={result}"
+        )
+    return tx_hash
+
+
 def setup_live_agents(specs: list[LiveAgentSpec], issuer_seed: str) -> list[LiveAgentSpec]:
     """Fund each agent, set up the role-specific state on the ledger.
 
@@ -224,6 +332,22 @@ def setup_live_agents(specs: list[LiveAgentSpec], issuer_seed: str) -> list[Live
                     spec.controller_banned_seed = ctrl_seed
                     spec.controller_banned_address = ctrl_addr
                     _issue_and_accept_credential(issuer_seed, seed)
+                    # Publish a real on-chain SignerListSet that includes the
+                    # banned co-signer. AgentRegistry resolves controllers from
+                    # this list, so AuthorizationPolicy will hit
+                    # CONTROLLER_BANNED against this address.
+                    sentinel_addr: str | None = None
+                    if spec.controller_banned_shape == "quarantined":
+                        sentinel_seed, sentinel_addr = _wallet_from_faucet()
+                        spec.controller_banned_sentinel_seed = sentinel_seed
+                        spec.controller_banned_sentinel_address = sentinel_addr
+                    spec.controller_banned_signerlist_tx = _setup_controller_banned_onchain(
+                        agent_seed=seed,
+                        agent_address=addr,
+                        banned_address=ctrl_addr,
+                        sentinel_address=sentinel_addr,
+                        shape=spec.controller_banned_shape,
+                    )
                 elif spec.role in ("banned", "no_creds", "wrong_issuer"):
                     if spec.role == "wrong_issuer":
                         wrong_issuer_seed, _ = _wallet_from_faucet()

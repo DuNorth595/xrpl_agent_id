@@ -6,6 +6,40 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-29
+
+### Added
+- **On-chain multi-sig for `controller_banned` role** — `setup_live_agents`
+  now publishes a real `SignerListSet` on the ledger when an agent is
+  configured for the `controller_banned` role. `AgentRegistry` resolves
+  controllers from this list, so `AuthorizationPolicy` hits the
+  `CONTROLLER_BANNED` code path against real on-chain state (closes the
+  v0.3.0 stress-test gap documented in `STRESS_TEST_v0.3.0.md` §3).
+  - Two shapes supported via `LiveAgentSpec.controller_banned_shape`:
+    `compromised` (default — banned addr is the sole signer, realistic
+    compromise scenario) and `quarantined` (banned + sentinel at 1:1,
+    quorum 2, account is operationally frozen but still detected).
+  - `_setup_controller_banned_onchain()` in `scripts/stress_harness_live.py`
+    builds, submits, and verifies the SignerListSet, with graceful
+    degradation on failure (agent rolls to `no_creds`, original role
+    preserved on the spec for the audit log).
+- **Live smoke test** — `scripts/live_signerlist_smoke.py` funds 3 wallets,
+  publishes one SignerListSet per shape, and verifies each on-chain via
+  `account_objects type=signer_list`. Both shapes confirmed live on testnet
+  with `tesSUCCESS` and the expected quorum/entries.
+- **Unit tests** — `tests/test_stress_harness_live_signerlist.py` covers
+  payload construction, error handling, and wiring into `setup_live_agents`
+  for both shapes (9 new tests, all hermetic via mocked ledger).
+- **Design doc** — `docs/CONTROLLER_BANNED_MULTISIG.md` documents the XRPL
+  constraint that drove the design (master cannot appear in its own
+  SignerList), the two valid shapes, and the live verification results.
+
+### Fixed
+- The `controller_banned` role in the v0.3.0 stress run was incorrectly
+  marked ALLOW because no SignerList was published. The harness now
+  exercises the on-chain path. Caught by reviewing the v0.3.0 report's
+  own honest note (§3).
+
 ## [0.3.0] - 2026-09-29
 
 ### Added

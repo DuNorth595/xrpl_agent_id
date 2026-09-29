@@ -26,8 +26,8 @@ from playwright.async_api import async_playwright
 
 HERE = Path(__file__).parent
 SRC_MD = HERE / "docs" / "STRESS_TEST_v0.3.0.md"
-HTML_OUT = HERE / "xrpl_agent_id_STRESS_v030.html"
-PDF_OUT = HERE / "xrpl_agent_id_STRESS_v030.pdf"
+HTML_OUT = HERE / "xrpl_agent_id_STRESS_v032.html"
+PDF_OUT = HERE / "xrpl_agent_id_STRESS_v032.pdf"
 
 
 # Same print CSS as build_pdf.py — re-used verbatim so the visual identity

@@ -24,12 +24,19 @@ from xrpl_agent_id.credential import Credential
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
 
-def _cred(issuer: str, subject: str, ctype: bytes, accepted: bool = True) -> Credential:
+def _cred(
+    issuer: str,
+    subject: str,
+    ctype: bytes,
+    accepted: bool = True,
+    expiration: int | None = None,
+) -> Credential:
     return Credential(
         issuer=f"did:xrpl:2:{issuer}",
         subject=f"did:xrpl:2:{subject}",
         credential_type=ctype,
         accepted=accepted,
+        expiration=expiration,
     )
 
 
@@ -317,3 +324,88 @@ class TestBannedPersistence:
     def test_ban_max_reason_length(self):
         with pytest.raises(ValueError, match="512 chars"):
             Ban(address="rA", reason="x" * 513)
+
+
+# ---------------------------------------------------------------------------
+# Credential expiry (XLS-70 expiration enforcement — v0.4.0 fix)
+# ---------------------------------------------------------------------------
+# These tests pin the behavior described in docs/MAINNET_DECISION.md §3.
+# Before this fix, CREDENTIAL_EXPIRED was a defined ReasonCode that nothing
+# ever emitted — expired credentials silently passed trust checks.
+
+class TestCredentialExpiry:
+    """Enforcement of XLS-70 `expiration` field at decision time.
+
+    XLS-70 stores expiration as Ripple epoch seconds (XRPL_EPOCH = 946684800).
+    The library translates "now" to Ripple epoch at decision time and emits
+    CREDENTIAL_EXPIRED when cred.expiration < now.
+    """
+
+    def test_expired_credential_denies(self, policy_with):
+        # expiration in the past (Ripple epoch = 1 second after XRPL_EPOCH)
+        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=True, expiration=1)])
+        pol = policy_with(rec)
+        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
+        decision = pol.evaluate("rSUBJ")
+        assert decision.allow is False
+        codes = [r.code for r in decision.reasons]
+        assert ReasonCode.CREDENTIAL_EXPIRED in codes
+        # And it should NOT be silently treated as OK or as missing/revoked
+        assert ReasonCode.OK not in codes
+        assert ReasonCode.CREDENTIAL_MISSING not in codes
+
+    def test_not_yet_expired_credential_allows(self, policy_with):
+        # expiration far in the future (Ripple epoch ~ year 2050)
+        future_expiry = 2_500_000_000  # well past current Ripple epoch
+        rec = _record(
+            creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=True, expiration=future_expiry)]
+        )
+        pol = policy_with(rec)
+        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
+        decision = pol.evaluate("rSUBJ")
+        assert decision.allow is True
+
+    def test_no_expiration_credential_allows(self, policy_with):
+        # No expiration set — same as the original happy path
+        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=True, expiration=None)])
+        pol = policy_with(rec)
+        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
+        decision = pol.evaluate("rSUBJ")
+        assert decision.allow is True
+
+    def test_expired_takes_precedence_over_unaccepted(self, policy_with):
+        # Both flags true — should fire EXPIRED, not REVOKED.
+        # (Expiry is the more specific signal: "credential is dead".)
+        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=False, expiration=1)])
+        pol = policy_with(rec)
+        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
+        decision = pol.evaluate("rSUBJ")
+        assert decision.allow is False
+        codes = [r.code for r in decision.reasons]
+        assert ReasonCode.CREDENTIAL_EXPIRED in codes
+        assert ReasonCode.CREDENTIAL_REVOKED not in codes
+
+    def test_expired_credential_without_require_rule_does_not_fire(self, policy_with):
+        # If the policy doesn't require this credential, expiry is irrelevant
+        # to the decision (we don't pre-emptively deny on expired creds unless
+        # they're in a require rule).
+        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=True, expiration=1)])
+        pol = policy_with(rec)
+        # No require_credential — empty policy
+        decision = pol.evaluate("rSUBJ")
+        assert decision.allow is True
+        codes = [r.code for r in decision.reasons]
+        assert ReasonCode.CREDENTIAL_EXPIRED not in codes
+
+    def test_expired_credential_reason_includes_timestamps(self, policy_with):
+        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=True, expiration=42)])
+        pol = policy_with(rec)
+        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
+        decision = pol.evaluate("rSUBJ")
+        expired_reasons = [r for r in decision.reasons if r.code == ReasonCode.CREDENTIAL_EXPIRED]
+        assert len(expired_reasons) == 1
+        r = expired_reasons[0]
+        assert r.credential_type == b"KYC"
+        assert r.issuer == "rAUDIT"
+        assert "42" in r.detail  # expiration value present in detail
+        assert "Ripple epoch" in r.detail

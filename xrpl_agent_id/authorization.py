@@ -299,6 +299,27 @@ class AuthorizationPolicy:
                                 cred_iss_addr = ""
                             if cred_iss_addr != req_issuer:
                                 continue
+                        # Expiry check first: an expired credential is dead
+                        # regardless of accepted state. XLS-70 stores expiration
+                        # as Ripple epoch seconds; None means no expiry.
+                        if cred.expiration is not None:
+                            from xrpl_agent_id.credential import RIPPLE_EPOCH
+                            import time as _time
+                            now_ripple = int(_time.time()) - RIPPLE_EPOCH
+                            if cred.expiration < now_ripple:
+                                reasons.append(
+                                    AuthorizationReason(
+                                        code=ReasonCode.CREDENTIAL_EXPIRED,
+                                        detail=(
+                                            f"credential expired at Ripple epoch "
+                                            f"{cred.expiration} (now {now_ripple})"
+                                        ),
+                                        issuer=req_issuer,
+                                        credential_type=req_ctype,
+                                    )
+                                )
+                                matched = True
+                                break
                         if not cred.accepted:
                             reasons.append(
                                 AuthorizationReason(

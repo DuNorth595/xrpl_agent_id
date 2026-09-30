@@ -6,6 +6,27 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-30
+
+### Fixed
+- **`CREDENTIAL_EXPIRED` is now emitted** when a required credential's `expiration` (XLS-70, Ripple epoch seconds) is in the past. The reason code was defined since v0.3.x but nothing ever produced it — expired credentials silently passed trust checks. Fix lives in `xrpl_agent_id/authorization.py::AuthorizationPolicy.evaluate()`. Behaviour is pinned by 6 new tests in `tests/test_authorization.py::TestCredentialExpiry`.
+
+### Changed
+- **Version: 0.3.3 → 0.4.0** (minor bump; the expired-credential bug was a silent correctness gap documented in `docs/MAINNET_DECISION.md` §3 as a mainnet blocker).
+- `xrpl_agent_id_dashboard/0.2.0` → `xrpl_agent_id_dashboard/0.3.0` (tracks library version).
+
+### See also
+- `docs/MAINNET_DECISION.md` — staged rollout plan. v0.4.0 closes blocker §3 (expiry). Blocker §2 (KMS / hardware wallet) and §4 (signed audit memos) remain on the v0.5.0 path.
+
+## [0.3.3] - 2026-09-30
+
+### Added
+- `docs/USE_CASES.md`, `docs/QUICKSTART.md` — public-facing documentation.
+- `xrpl_agent_id/PUBLIC_API.md` — versioned public-API contract.
+- `XRPL_AGENT_ID_VERSION` and `XRPL_AGENT_ID_VERSION_INFO` canonical aliases.
+- `python -m xrpl_agent_id --version` and `--api` CLI flags.
+- Dashboard routes: `GET /api/version`, `GET /api/liveness`, `GET /api/monitor` (renamed from `/api/health`). `GET /api/health` retained as deprecated alias.
+
 ## [0.3.2] - 2026-09-29
 
 ### Added

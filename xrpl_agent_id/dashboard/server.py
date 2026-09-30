@@ -505,7 +505,7 @@ def api_verify(
 # ---------------------------------------------------------------------------
 
 class DashboardHandler(BaseHTTPRequestHandler):
-    server_version = "xrpl_agent_id_dashboard/0.2.0"
+    server_version = "xrpl_agent_id_dashboard/0.3.0"
 
     def log_message(self, format: str, *args: Any) -> None:
         # Quiet default access log; uncomment to debug.

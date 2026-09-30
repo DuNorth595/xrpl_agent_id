@@ -1,0 +1,45 @@
+# Pre-commit hooks for xrpl_agent_id.
+#
+# Install once after cloning:
+#   pip install -e ".[dev]"
+#   pre-commit install
+#
+# Hooks then run automatically on every `git commit`. CI runs the same
+# scanner separately (see .github/workflows/ci.yml) so a bypassed local
+# hook is still caught.
+#
+# To skip a hook for one commit (use sparingly):
+#   git commit --no-verify -m "..."
+#
+# To run hooks manually against all files:
+#   pre-commit run --all-files
+#
+# Only the seed scanner is wired up here for now. Add additional local
+# hooks below if/when we adopt ruff, mypy, etc.
+repos:
+  - repo: local
+    hooks:
+      - id: check-no-seeds
+        name: Block XRPL classic + hex seeds in staged files
+        # Scan STAGED files only (default behavior). The scanner exits
+        # non-zero on any hit, blocking the commit.
+        entry: python scripts/check_no_seeds.py
+        language: system
+        # Scan every text file we'd ever commit. The scanner internally
+        # filters by extension and ignore patterns; broad stage here is
+        # safe and matches what `git diff --cached --name-only` would show.
+        types_or: [text]
+        # Don't scan the scanner itself (otherwise editing the regex
+        # would trigger false positives during development of the
+        # scanner). Markdown is NOT excluded — the scanner's own
+        # ALLOWLIST/LEGACY_ALLOWLIST handles pre-existing patterns in
+        # docs, and we want new seed-looking strings in docs (e.g. a
+        # tutorial using a realistic-looking example) to be caught.
+        exclude: ^scripts/check_no_seeds\.py$
+        # Always run, even if no Python files are staged — the scanner
+        # is cheap (regex + line-by-line) and we want it to confirm
+        # "nothing to scan" on every commit.
+        always_run: true
+        # Show stdout in the commit output so the user sees the
+        # offending line if the hook blocks them.
+        verbose: true

@@ -61,6 +61,7 @@ from enum import Enum
 from typing import Optional
 
 from xrpl_agent_id.banned import BannedAgentRegistry
+from xrpl_agent_id.credential import RIPPLE_EPOCH
 from xrpl_agent_id.registry import AgentRegistry
 
 
@@ -303,9 +304,7 @@ class AuthorizationPolicy:
                         # regardless of accepted state. XLS-70 stores expiration
                         # as Ripple epoch seconds; None means no expiry.
                         if cred.expiration is not None:
-                            from xrpl_agent_id.credential import RIPPLE_EPOCH
-                            import time as _time
-                            now_ripple = int(_time.time()) - RIPPLE_EPOCH
+                            now_ripple = int(time.time()) - RIPPLE_EPOCH
                             if cred.expiration < now_ripple:
                                 reasons.append(
                                     AuthorizationReason(

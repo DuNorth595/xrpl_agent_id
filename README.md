@@ -282,15 +282,15 @@ The version of `xrpl_agent_id` is exposed in three places — pick the one that 
 
 ```python
 import xrpl_agent_id
-print(xrpl_agent_id.__version__)        # → 0.3.3
-print(xrpl_agent_id.XRPL_AGENT_ID_VERSION)   # → "0.3.3" (string form, identical)
+print(xrpl_agent_id.__version__)        # → 0.4.0
+print(xrpl_agent_id.XRPL_AGENT_ID_VERSION)   # → "0.4.0" (string form, identical)
 ```
 
 **CLI** — for scripts and CI smoke tests:
 
 ```bash
 $ python -m xrpl_agent_id --version
-xrpl_agent_id 0.3.3
+xrpl_agent_id 0.4.0
 ```
 
 `--api` (the default when no flag is given) prints the version plus the public
@@ -302,8 +302,8 @@ API surface and a DID roundtrip example.
 GET /api/version     → 200 application/json
 {
   "package":         "xrpl_agent_id",
-  "package_version": "0.3.3",
-  "server_version":  "0.2.0",
+  "package_version": "0.4.0",
+  "server_version":  "0.3.0",
   "python_version":  "3.9.6",
   "xrpl_py_version": "4.5.0",
   "now":             1790725680,

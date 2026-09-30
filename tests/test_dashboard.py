@@ -203,8 +203,14 @@ def test_http_handler() -> None:
 
 def test_files_api_lists_project() -> None:
     """api_files() returns the project root, version, and walks all visible files."""
+    import os
+
     result = srv.api_files()
-    assert result["root"].endswith("XRPL_AGENT_ID")
+    # PROJECT_ROOT is the directory ABOVE the xrpl_agent_id package — its
+    # basename may be uppercase ('XRPL_AGENT_ID') on dev machines and lowercase
+    # ('xrpl_agent_id') on CI runners (clone uses repo slug). Compare case-
+    # insensitively so this test is portable.
+    assert os.path.basename(result["root"]).lower() == "xrpl_agent_id"
     assert result["version"].startswith("0.")  # whatever current version is
     assert len(result["files"]) > 0
     # Every result has a positive size and an absolute path

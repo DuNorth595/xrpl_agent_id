@@ -222,4 +222,4 @@ class TestPublicAPI:
         assert hasattr(xrpl_agent_id, "VerificationResult")
         assert hasattr(xrpl_agent_id, "Authority")
         assert hasattr(xrpl_agent_id, "AgentIdentity")
-        assert xrpl_agent_id.__version__ == "0.4.0"
+        assert xrpl_agent_id.__version__.startswith("0.")

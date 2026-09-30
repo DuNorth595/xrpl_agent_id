@@ -1,4 +1,4 @@
-# Mainnet Decision — v0.3.3
+# Mainnet Decision — v0.3.3 / v0.4.0 (last updated 2026-09-30)
 
 **Status:** ⛔ **NO-GO for mainnet** in v0.3.x.
 **Earliest realistic mainnet target:** v0.5.0, contingent on the blockers below.
@@ -153,22 +153,30 @@ For mainnet, recommend: rely on the **ledger credential entry itself** as the so
 ## 5. Recommendation — staged rollout
 
 ### v0.3.3 (now) — testnet only
-- ✅ Ship `xrpl_agent_id 0.3.3` to PyPI as testnet-only.
+- ✅ Ship `xrpl_agent_id 0.3.3` to GitHub as testnet-only.
 - ✅ README states "**this library targets testnet. Mainnet is not supported in v0.3.x.**"
 - ✅ Dashboard defaults to `network=testnet`; mainnet URL must be explicit.
 - ✅ All `pytest` runs use testnet fixtures.
 
-### v0.4.0 — mainnet readiness prep
-- 🔧 **Implement expiry enforcement** in `AuthorizationPolicy.evaluate` (fixes §3).
-- 🔧 Add `tests/test_authorization.py::test_expired_credential_is_denied`.
-- 🔧 Add `WalletProvider` interface; keep `from_seed` as one impl.
-- 🔧 Document reserve lockup costs in README with a worked example (§1.2).
+### v0.4.0 (shipped 2026-09-30) — expiry fix closes §3 blocker
+- ✅ **Implemented expiry enforcement** in `AuthorizationPolicy.evaluate` (`xrpl_agent_id/authorization.py`).
+  Emits `CREDENTIAL_EXPIRED` reason when a required credential's `expiration`
+  (XLS-70, Ripple epoch seconds) is in the past. Was a silent gap before.
+- ✅ Added `tests/test_authorization.py::TestCredentialExpiry` — 6 new hermetic tests.
+- ✅ Bumped to `xrpl_agent_id 0.4.0`. Public GitHub tip `3ba4b13`. PyPI publish deferred
+  (build verified clean via `twine check`; not uploaded).
+- ⏭ `WalletProvider` interface (deferred to v0.5.0).
+- ⏭ Document reserve lockup costs in README (deferred — §1.2 numbers still hold).
+
+**Status update (2026-09-30):** §3 blocker resolved. Remaining path to mainnet is §2
+(KMS / hardware wallet) and §4 (signed audit memos). Both target v0.5.0.
 
 ### v0.5.0 — mainnet go
 - ⏭ Hardware-wallet / KMS-backed `WalletProvider`.
 - ⏭ Audit-log integrity proofs (signed decision_id, not just memo).
 - ⏭ Stress run on **mainnet** with a capped treasury (e.g., 100 XRP) to validate reserve math in practice.
 - ⏭ SECURITY.md published with seed-handling threat model.
+- ⏭ PyPI publish (`twine upload`) — requires PyPI account + 2FA token, gated by you.
 
 ---
 
@@ -188,8 +196,9 @@ These are decisions for whoever funds the issuer account, not code:
 | Date | Commit | Note |
 |---|---|---|
 | 2026-09-30 | (this doc) | Initial decision. Testnet-only for v0.3.3. |
-| TBD | v0.4.0 | Re-decide after expiry enforcement lands. |
+| 2026-09-30 | `29ee5b3` | v0.4.0 shipped — §3 (expiry) blocker resolved. Re-decide on §2/§4 path to mainnet. |
+| 2026-09-30 | `3ba4b13` | Public GitHub repo tip after v0.4.0 push. PyPI publish deferred. |
 
 ---
 
-*This document is part of the v0.3.3 release notes — not a roadmap item, a recorded decision.*
+*This document is a recorded decision; it tracks v0.3.3 (initial), v0.4.0 (expiry blocker resolved), and the v0.5.0 path to mainnet.*

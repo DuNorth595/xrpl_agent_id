@@ -47,7 +47,7 @@ The README's Quickstart example uses `Journal` (from `audit.py`) — but `Journa
 | 2. Quickstart | ✅ Done | `41db40c` |
 | 3. Lock public API surface | 🔧 In progress — API gap found | — |
 | 4. `/version` endpoint | Pending | — |
-| 5. Mainnet decision | Pending | — |
+| 5. Mainnet decision | ✅ shipped | `docs/MAINNET_DECISION.md` (NO-GO v0.3.x, v0.5.0 target) |
 | 6. `pyproject.toml` publish dry-run | Pending | — |
 
 **Health:**

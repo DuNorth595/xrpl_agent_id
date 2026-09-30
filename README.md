@@ -14,7 +14,7 @@
 ## Cover Page
 
 | **Package:** `xrpl_agent_id`
-|**Version:** 0.3.0 (beta)
+|**Version:** 0.4.0 (beta)
 |**Author:** Justin Douglas
 |**Organization:** S_DevLabs (Strategic Development Labs)
 |**Contact:** S_DevLabs@outlook.com

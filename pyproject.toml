@@ -4,7 +4,7 @@ version = "0.4.0"
 description = "Identity for AI agents on the XRP Ledger — W3C did:xrpl + XLS-70 Credentials"
 requires-python = ">=3.9"
 license = {text = "MIT"}
-authors = [{name = "Justin Douglas"}]
+authors = [{name = "Justin Douglas", email = "S_DevLabs@outlook.com"}]
 readme = "README.md"
 keywords = ["xrpl", "did", "credentials", "agent", "identity", "xls-40", "xls-70"]
 classifiers = [

@@ -39,16 +39,17 @@ The package has **two parallel APIs** in flight:
 
 The README's Quickstart example uses `Journal` (from `audit.py`) — but `Journal` isn't in `__all__`. So the README is *already broken* against the current package. The "lock public API" item needs to decide: (a) expose the v0.3 modules at top-level, or (b) drop them from the docs until they're stable. Today's Quickstart takes path (b) — only uses what's actually in `__all__`.
 
-**Status (cumulative v0.3.3):**
+**Status (cumulative v0.4.0):**
 
 | Item | Status | Commit |
 |---|---|---|
 | 1. Use-cases doc | ✅ Done | `44a59db` |
 | 2. Quickstart | ✅ Done | `41db40c` |
-| 3. Lock public API surface | 🔧 In progress — API gap found | — |
-| 4. `/version` endpoint | Pending | — |
+| 3. Lock public API surface | ✅ Done | `7a77911` |
+| 4. `/version` endpoint | ✅ Done | `7a77911` |
 | 5. Mainnet decision | ✅ shipped | `docs/MAINNET_DECISION.md` (NO-GO v0.3.x, v0.5.0 target) |
-| 6. `pyproject.toml` publish dry-run | Pending | — |
+| 6. `pyproject.toml` publish dry-run | ✅ shipped | `4aa57a9` — wheel + sdist both PASS `twine check` |
+| 7. **v0.4.0 bug fix: XLS-70 expiry enforcement** | ✅ shipped | `e33fbd1` — closes MAINNET_DECISION §3 blocker. 6 new tests in TestCredentialExpiry. |
 
 **Health:**
 - Tests 158/158 passing (151 prior + 7 new smoke tests)

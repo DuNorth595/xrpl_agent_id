@@ -36,6 +36,20 @@ from xrpl_agent_id.trust import (
 __version__ = "0.4.0"
 XRPL_AGENT_ID_VERSION = __version__  # canonical alias — referenced in docs/tests
 
+# When the package is installed (via `pip install -e .`), prefer the version
+# reported by importlib.metadata so this module cannot drift out of sync
+# with pyproject.toml. Fall back to the literal above when running from an
+# unpacked source tree that has no installed metadata.
+try:
+    from importlib.metadata import version as _pkg_version
+
+    _installed_version = _pkg_version("xrpl_agent_id")
+    if _installed_version and _installed_version != __version__:
+        __version__ = _installed_version
+        XRPL_AGENT_ID_VERSION = _installed_version
+except Exception:
+    pass
+
 # Version tuple for libraries that want to introspect (PEP 440-ish, loose).
 def _version_info() -> tuple[int, int, int]:
     parts = __version__.split(".")

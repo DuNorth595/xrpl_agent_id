@@ -180,12 +180,28 @@ def _scan_file(path: Path) -> list[tuple[int, str, str]]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Block commits containing XRPL seeds.")
+    ap = argparse.ArgumentParser(
+        description="Block commits containing XRPL seeds.",
+        epilog=(
+            "Modes: "
+            "(1) no args -> scan git-staged files. "
+            "(2) --all -> scan every tracked file. "
+            "(3) FILE [FILE ...] -> scan the given files "
+            "(used by pre-commit hooks, which pass paths positionally)."
+        ),
+    )
     ap.add_argument("--all", action="store_true",
                     help="scan every tracked file (default: staged only)")
+    ap.add_argument("files", nargs="*",
+                    help="explicit files to scan (overrides --all and staged)")
     args = ap.parse_args()
 
-    if args.all:
+    if args.files:
+        # Explicit paths mode — used by pre-commit hooks. Resolve relative
+        # paths against CWD (pre-commit passes repo-relative paths).
+        paths = [Path(f).resolve() for f in args.files]
+        scope = f"{len(paths)} explicit file(s)"
+    elif args.all:
         paths = _all_tracked_paths()
         scope = "all tracked files"
     else:
@@ -200,17 +216,28 @@ def main() -> int:
     total_hits = 0
     legacy_hits = 0
     for p in paths:
-        rel = p.relative_to(root)
-        if str(rel) in ALLOWLIST:
+        try:
+            rel = p.relative_to(root)
+            rel_str = str(rel)
+            in_repo = True
+        except ValueError:
+            # File is outside the repo (e.g. a temp canary path).
+            # In explicit-files mode we still want to scan and report it,
+            # but allowlists (which are keyed on repo-relative paths)
+            # don't apply.
+            rel_str = str(p)
+            in_repo = False
+
+        if in_repo and rel_str in ALLOWLIST:
             continue
         hits = _scan_file(p)
         for lineno, line, kind in hits:
-            if (str(rel), lineno) in LEGACY_ALLOWLIST:
+            if in_repo and (rel_str, lineno) in LEGACY_ALLOWLIST:
                 legacy_hits += 1
                 continue
             # Truncate the line so we don't print the secret back to stdout.
             preview = line[:60] + ("..." if len(line) > 60 else "")
-            print(f"{rel}:{lineno}: [{kind}] {preview}", file=sys.stderr)
+            print(f"{rel_str}:{lineno}: [{kind}] {preview}", file=sys.stderr)
             total_hits += 1
 
     if total_hits:

@@ -43,19 +43,18 @@ The README's Quickstart example uses `Journal` (from `audit.py`) — but `Journa
 
 | Item | Status | Commit |
 |---|---|---|
-| 1. Use-cases doc | ✅ Done | `44a59db` |
-| 2. Quickstart | ✅ Done | `41db40c` |
-| 3. Lock public API surface | ✅ Done | `7a77911` |
-| 4. `/version` endpoint | ✅ Done | `7a77911` |
+| 1. Use-cases doc | ✅ Done | `3b98dda` |
+| 2. Quickstart | ✅ Done | `04770a1` |
+| 3. Lock public API surface | ✅ Done | `a93da03` |
+| 4. `/version` endpoint | ✅ Done | `a93da03` |
 | 5. Mainnet decision | ✅ shipped | `docs/MAINNET_DECISION.md` (NO-GO v0.3.x, v0.5.0 target) |
-| 6. `pyproject.toml` publish dry-run | ✅ shipped | `4aa57a9` — wheel + sdist both PASS `twine check` |
-| 7. **v0.4.0 bug fix: XLS-70 expiry enforcement** | ✅ shipped | `e33fbd1` — closes MAINNET_DECISION §3 blocker. 6 new tests in TestCredentialExpiry. |
+| 6. `pyproject.toml` publish dry-run | ✅ shipped | `ef5bddf` — wheel + sdist both PASS `twine check` |
+| 7. **v0.4.0 bug fix: XLS-70 expiry enforcement** | ✅ shipped | `29ee5b3` — closes MAINNET_DECISION §3 blocker. 6 new tests in TestCredentialExpiry. |
 
 **Health:**
-- Tests 158/158 passing (151 prior + 7 new smoke tests)
-- Working tree clean at `41db40c`
-- PDFs in Telegram: Use Cases (msg 113280), Quickstart (msg 113404)
-- Snapshot: needs refresh after item #3 ships
+- Tests 201/201 passing (195 prior + 6 new expiry tests; 6 live-testnet integration tests skipped — require funded wallets)
+- Working tree clean at `3ba4b13` (main)
+- Public repo: `DuNorth595/xrpl_agent_id` @ `3ba4b13`
 
 ---
 

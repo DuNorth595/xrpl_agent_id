@@ -1,6 +1,6 @@
 # xrpl_agent_id — Public API Contract
 
-**Version: 0.3.3** · Pinned by `tests/test_public_api.py` · Last updated: 2026-09-30
+**Version: 0.4.0** · Pinned by `tests/test_public_api.py` · Last updated: 2026-09-30
 
 This document is the formal public-API contract for `xrpl_agent_id`. Every name
 listed here is exported from the top-level `xrpl_agent_id` package and is
@@ -54,8 +54,8 @@ xrpl_agent_id.<NAME>  # all names below must be reachable this way
 
 | Name | Purpose |
 | --- | --- |
-| `XRPL_AGENT_ID_VERSION` | String `"0.3.3"` (canonical version, same value as `__version__`). |
-| `XRPL_AGENT_ID_VERSION_INFO` | Tuple `(0, 3, 3)` — PEP-440-style, loose. |
+| `XRPL_AGENT_ID_VERSION` | String `"0.4.0"` (canonical version, same value as `__version__`). |
+| `XRPL_AGENT_ID_VERSION_INFO` | Tuple `(0, 4, 0)` — PEP-440-style, loose. |
 
 The `__version__` attribute is also exported (standard Python convention).
 

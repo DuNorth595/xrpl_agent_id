@@ -37,7 +37,7 @@ Verify the install:
 ```python
 >>> import xrpl_agent_id
 >>> xrpl_agent_id.__version__
-'0.3.2'
+'0.4.0'
 ```
 
 ---
@@ -260,8 +260,8 @@ The DID's network ID flips from `2` to `1`. The library never assumes testnet by
 
 ## Document status
 
-- **Version:** 0.3.3-draft
+- **Version:** 0.4.0
 - **Author:** S_DevLabs
-- **Last updated:** 2026-09-29
-- **Tested against:** `xrpl_agent_id` 0.3.2 on XRPL testnet
+- **Last updated:** 2026-09-30
+- **Tested against:** `xrpl_agent_id` 0.4.0 on XRPL testnet
 - **Audience:** First-time users of `xrpl_agent_id`. Assumes basic XRPL knowledge (accounts, seeds, transactions) but no prior exposure to this library.

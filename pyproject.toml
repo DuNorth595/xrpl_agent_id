@@ -29,6 +29,11 @@ dependencies = [
 mcp = [
     "mcp>=1.0.0",
 ]
+# Install with: pip install xrpl_agent_id[dev]
+# Adds the test runner. Used by `pytest tests/` and by .github/workflows/ci.yml.
+dev = [
+    "pytest>=8.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/DuNorth595/xrpl_agent_id"

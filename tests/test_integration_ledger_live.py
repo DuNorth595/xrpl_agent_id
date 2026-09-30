@@ -3,7 +3,7 @@
 """Live XRPL testnet integration tests for xrpl_agent_id.
 
 Run with:
-    /usr/bin/python3 -m pytest tests/test_integration_ledger_live.py -v --run-live
+    RUN_LIVE=1 /usr/bin/python3 -m pytest tests/test_integration_ledger_live.py -v
 
 These tests hit the public XRPL testnet. They:
   1. Create fresh funded wallets via the testnet faucet
@@ -13,7 +13,7 @@ These tests hit the public XRPL testnet. They:
   5. Verify the credential is resolvable via ledger_entry
 
 Outputs are written to ../results/ for the issuance flow document.
-Skipped by default to keep CI green; opt in with --run-live.
+Skipped by default to keep CI green; opt in by setting RUN_LIVE=1.
 """
 
 from __future__ import annotations

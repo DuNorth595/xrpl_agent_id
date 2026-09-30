@@ -13,7 +13,9 @@ __pycache__/
 htmlcov/
 build/
 dist/
-
+*.venv/
+*-venv/
+install-test/
 # Virtual envs
 venv/
 .venv/

@@ -320,6 +320,24 @@ removing or renaming a field fails the test suite.
 
 ---
 
+## Releases
+
+GitHub Releases track shipped versions of `xrpl_agent_id`. Each release is a
+signed tag on `main` plus a changelog entry. PyPI publishing is intentionally
+deferred until the v0.5.0 milestone (KMS-backed signing + signed audit memos);
+this README ships with GitHub-only releases for now.
+
+**Latest: [v0.4.0 — Credential expiry + lifecycle hardening](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.4.0)** (2026-09-30)
+
+| Version | Date | Highlights |
+|---|---|---|
+| [v0.4.0](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.4.0) | 2026-09-30 | `CREDENTIAL_EXPIRED` reason code is now emitted (was a silent correctness gap). 6 expiry tests. 201/201 passing. |
+| [v0.2.4](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.2.4) | 2026-09-28 | Dashboard, trust library, S_DevLabs branding. |
+
+Full history lives in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+
+---
+
 ## 4. Testing
 
 ### Current Test Suite

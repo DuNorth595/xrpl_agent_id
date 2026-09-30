@@ -44,8 +44,17 @@ on the user's behalf, and does not custody keys.
    `xrpl-py`'s `Wallet` class does not override `__repr__`, so it leaks the seed
    in default reprs. Always log the **classic address** (`wallet.classic_address`),
    never the wallet object itself.
-2. **Never commit a seed.** Even for test fixtures. The pre-commit hook
-   `scripts/check_no_seeds.py` greps staged blobs for known seed patterns.
+2. **Never commit a seed.** Even for test fixtures. Two layers of
+   defense:
+   - **Local pre-commit hook** (`.pre-commit-config.yaml` →
+     `scripts/check_no_seeds.py`). Install once with
+     `pip install -e ".[dev]" && pre-commit install` and every
+     `git commit` is blocked if a staged file contains an XRPL
+     classic seed (`s...`) or a 64-char hex seed. The scanner
+     exits non-zero on a hit.
+   - **CI backstop** (`.github/workflows/ci.yml`) runs the same
+     scanner via `pre-commit run --all-files`, so even a bypassed
+     local hook (`git commit --no-verify`) is caught before merge.
    If you need a wallet for a test, generate one inside the test:
    `Wallet.create()`.
 3. **Persist test scripts' seeds with `chmod 600`.** Pattern from

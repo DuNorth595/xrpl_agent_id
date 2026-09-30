@@ -39,6 +39,12 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
 
+      - name: Run pre-commit hooks (seed scanner + any future hooks)
+        # Backstop for the local pre-commit hook in case a contributor
+        # commits with `--no-verify`. Runs every hook in
+        # .pre-commit-config.yaml against the entire tree.
+        run: pre-commit run --all-files --show-diff-on-failure
+
       - name: Run pytest
         # Live XRPL testnet integration tests in
         # tests/test_integration_ledger_live.py self-skip when RUN_LIVE

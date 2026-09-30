@@ -30,9 +30,11 @@ mcp = [
     "mcp>=1.0.0",
 ]
 # Install with: pip install xrpl_agent_id[dev]
-# Adds the test runner. Used by `pytest tests/` and by .github/workflows/ci.yml.
+# Adds the test runner + pre-commit. Used by `pytest tests/`,
+# `.github/workflows/ci.yml`, and `.pre-commit-config.yaml`.
 dev = [
     "pytest>=8.0",
+    "pre-commit>=3.5.0",
 ]
 
 [project.urls]

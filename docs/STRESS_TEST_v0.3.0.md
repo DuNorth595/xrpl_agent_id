@@ -498,7 +498,7 @@ the run, tx `A218D9AD...`):
       {"code": "CONTROLLER_BANNED", "detail": "controller r...: live test controller ban"}
     ],
     "extra": {"role": "controller_banned", "mode": "live"},
-    "mirored_tx": "A218D9ADD6BA207A29A67CD8F40CD99877301DF0676F104BEA722B75CCA6379B"
+    "mirrored_tx": "A218D9ADD6BA207A29A67CD8F40CD99877301DF0676F104BEA722B75CCA6379B"
   },
   "on_chain_proof": {
     "tx_hash": "A218D9ADD6BA207A29A67CD8F40CD99877301DF0676F104BEA722B75CCA6379B",

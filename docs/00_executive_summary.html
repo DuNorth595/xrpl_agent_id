@@ -114,13 +114,13 @@
   <p class="cover-tagline">Portable, vendor-independent identity for AI agents<br>XRPL native · MIT licensed</p>
   <div class="cover-divider"></div>
   <p class="cover-meta"><strong>Identity &amp; Trust</strong> · XRP Ledger (XLS-70 Credentials + XLS-40d DIDs)<br>
-  Live on XRPL Testnet · 31/31 tests passing</p>
+  <strong>v0.4.0 · Credential expiry enforcement</strong> · 201 tests passing · Live on XRPL Testnet</p>
   <div class="cover-divider"></div>
   <p class="cover-contact">
     <strong>S_DevLabs</strong><br>
     <a href="mailto:S_DevLabs@outlook.com">S_DevLabs@outlook.com</a>
   </p>
-  <p class="cover-foot">Prepared 2026-09-28</p>
+  <p class="cover-foot">Prepared 2026-09-30</p>
 </div>
 
 <div style="page-break-after: always;"></div>
@@ -162,7 +162,7 @@ Verifiers query the ledger. They see the credential, the issuer, the timestamp, 
   </div>
 </div>
 <br>
-<strong>Library state:</strong> Full Python package, MIT licensed. <strong>27 offline tests passing, 4 live integration tests passing.</strong> Ergonomic API: <code>AgentIdentity.from_seed()</code>, <code>issuer.issue_credential()</code>, <code>agent.has_credential()</code>, <code>resolve_did()</code>.
+<strong>Library state:</strong> Full Python package, MIT licensed, <strong>v0.4.0</strong>. <strong>201 offline tests passing, 6 live integration tests</strong> (XRPL testnet; credential expiry, DID roundtrip, authorization policy). <strong>v0.4.0 closed a silent correctness gap</strong>: <code>CREDENTIAL_EXPIRED</code> is now emitted when an XLS-70 credential's <code>expiration</code> is in the past. Ergonomic API: <code>AgentIdentity.from_seed()</code>, <code>issuer.issue_credential()</code>, <code>agent.has_credential()</code>, <code>resolve_did()</code>.
 </div>
 
 <h2>Why XRPL</h2>

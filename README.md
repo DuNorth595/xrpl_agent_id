@@ -323,9 +323,9 @@ removing or renaming a field fails the test suite.
 ## Releases
 
 GitHub Releases track shipped versions of `xrpl_agent_id`. Each release is a
-signed tag on `main` plus a changelog entry. PyPI publishing is intentionally
-deferred until the v0.5.0 milestone (KMS-backed signing + signed audit memos);
-this README ships with GitHub-only releases for now.
+signed tag on `main` plus a changelog entry. **PyPI publishing is not planned** —
+this library is installed from source (see [§5.A Installation](#a-installation)).
+That is the supported install path; there is no `pip install xrpl_agent_id`.
 
 **Latest: [v0.4.0 — Credential expiry + lifecycle hardening](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.4.0)** (2026-09-30)
 
@@ -411,17 +411,21 @@ These will use testnet faucets and require `XRPL_TESTNET_SECRET` in the env.
 
 ### A. Installation
 
+The library is **not published to PyPI**. Install from source:
+
 ```bash
-# Just the library
-pip install xrpl_agent_id
-
-# With MCP server support
-pip install xrpl_agent_id[mcp]
-
-# Development install from source
 git clone https://github.com/DuNorth595/xrpl_agent_id
 cd xrpl_agent_id
+
+# Library + dev tooling (tests, ruff, mypy)
 pip install -e ".[dev,mcp]"
+```
+
+Verify it works:
+
+```bash
+python -m xrpl_agent_id --version      # → xrpl_agent_id 0.4.0
+python -m pytest tests/                # → 201 passed, 6 skipped (live testnet)
 ```
 
 ### B. Why We Don't Copy `decID`'s DID Document Format
@@ -461,7 +465,7 @@ Confirmed against [XLS-37](https://github.com/XRPLF/XRPL-Standards/blob/master/X
 | `xrpl-py` ledger wire-up (DIDSet, CredentialCreate/Accept) | +1 week | Done — `xrpl-py 4.5.0` live |
 | Testnet end-to-end demo | +1 week | Done — `scripts/issue_agent_id.py`, results in `results/` |
 | Live issuance flow documentation | +1 week | Done — `docs/01_issuance_flow.md` |
-| PyPI v0.1.0 release | +2 weeks | Next |
+| PyPI v0.1.0 release | +2 weeks | **Not planned** — GitHub-only install |
 | MCP server wrapper (`[mcp]` extra) | +2-3 weeks | Planned |
 | README + tutorial for EasyA submission | +3 weeks | Planned |
 

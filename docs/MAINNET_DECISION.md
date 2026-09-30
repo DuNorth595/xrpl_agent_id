@@ -163,8 +163,8 @@ For mainnet, recommend: rely on the **ledger credential entry itself** as the so
   Emits `CREDENTIAL_EXPIRED` reason when a required credential's `expiration`
   (XLS-70, Ripple epoch seconds) is in the past. Was a silent gap before.
 - ✅ Added `tests/test_authorization.py::TestCredentialExpiry` — 6 new hermetic tests.
-- ✅ Bumped to `xrpl_agent_id 0.4.0`. Public GitHub tip `3ba4b13`. PyPI publish deferred
-  (build verified clean via `twine check`; not uploaded).
+- ✅ Bumped to `xrpl_agent_id 0.4.0`. Public GitHub tip `3ba4b13`. GitHub-only release
+  (no PyPI publish planned; install from source via `pip install -e ".[dev,mcp]"`).
 - ⏭ `WalletProvider` interface (deferred to v0.5.0).
 - ⏭ Document reserve lockup costs in README (deferred — §1.2 numbers still hold).
 
@@ -176,7 +176,7 @@ For mainnet, recommend: rely on the **ledger credential entry itself** as the so
 - ⏭ Audit-log integrity proofs (signed decision_id, not just memo).
 - ⏭ Stress run on **mainnet** with a capped treasury (e.g., 100 XRP) to validate reserve math in practice.
 - ⏭ SECURITY.md published with seed-handling threat model.
-- ⏭ PyPI publish (`twine upload`) — requires PyPI account + 2FA token, gated by you.
+- ~~PyPI publish~~ — **not planned.** Library installs from source; no PyPI account available.
 
 ---
 
@@ -197,7 +197,8 @@ These are decisions for whoever funds the issuer account, not code:
 |---|---|---|
 | 2026-09-30 | (this doc) | Initial decision. Testnet-only for v0.3.3. |
 | 2026-09-30 | `29ee5b3` | v0.4.0 shipped — §3 (expiry) blocker resolved. Re-decide on §2/§4 path to mainnet. |
-| 2026-09-30 | `3ba4b13` | Public GitHub repo tip after v0.4.0 push. PyPI publish deferred. |
+| 2026-09-30 | `3ba4b13` | Public GitHub repo tip after v0.4.0 push. PyPI publish: not planned. |
+| 2026-09-30 | `444cfb9` | README "Releases" + docs/dev/SYNC.md landed. PyPI plan retired from public docs. |
 
 ---
 

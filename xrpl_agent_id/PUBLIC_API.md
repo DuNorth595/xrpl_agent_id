@@ -1,6 +1,6 @@
 # xrpl_agent_id — Public API Contract
 
-**Version: 0.4.0** · Pinned by `tests/test_public_api.py` · Last updated: 2026-09-30
+**Version: 0.4.1** · Pinned by `tests/test_public_api.py` · Last updated: 2026-09-30
 
 This document is the formal public-API contract for `xrpl_agent_id`. Every name
 listed here is exported from the top-level `xrpl_agent_id` package and is

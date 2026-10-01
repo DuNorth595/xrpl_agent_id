@@ -582,8 +582,9 @@ Build: `cd <project_root> && /usr/bin/python3 build_pdf.py` (or
 The Telegram Home channel receives the PDFs after each rebuild:
 
 ```bash
-/usr/bin/python3 /Users/samintelligence/.hermes/scripts/send_telegram_document.py \
-    6921445477 \
+# Send via Hermes Telegram delivery (path depends on your Hermes install)
+python3 ~/.hermes/scripts/send_telegram_document.py \
+    <chat_id> \
     ~/Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID/xrpl_agent_id_STRESS_v030.pdf
 ```
 

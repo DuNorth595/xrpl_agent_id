@@ -1,0 +1,8 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/dep5
+Upstream-Name: xrpl_agent_id
+Upstream-Contact: S_DevLabs <S_DevLabs@outlook.com>
+Source: https://github.com/DuNorth595/xrpl_agent_id
+
+Files: *
+Copyright: 2026 Justin Douglas
+License: MIT

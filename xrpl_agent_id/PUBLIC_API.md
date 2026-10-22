@@ -54,7 +54,7 @@ xrpl_agent_id.<NAME>  # all names below must be reachable this way
 
 | Name | Purpose |
 | --- | --- |
-| `XRPL_AGENT_ID_VERSION` | String `"0.4.1"` (canonical version, same value as `__version__`). |
+| `XRPL_AGENT_ID_VERSION` | String `"0.4.2"` (canonical version, same value as `__version__`). |
 | `XRPL_AGENT_ID_VERSION_INFO` | Tuple `(0, 4, 0)` — PEP-440-style, loose. |
 
 The `__version__` attribute is also exported (standard Python convention).

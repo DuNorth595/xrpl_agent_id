@@ -6,6 +6,50 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-22
+
+Documentation and packaging correctness. No library behaviour changed.
+
+### Fixed
+- **Version drift.** `pyproject.toml` shipped 0.4.1 while the README reported
+  0.4.0 in eight places, `__init__.py` carried a 0.4.0 literal, and
+  `PUBLIC_API.md` contradicted itself. All now agree on 0.4.1.
+- **CI was green because of a stale assertion.**
+  `tests/test_dashboard_version_routes.py` pinned the wrong version, so the
+  dashboard test passed instead of catching the drift. It now asserts the real
+  value, and all four surfaces are covered.
+- **Removed a phantom feature.** The README and `pyproject.toml` advertised an
+  `[mcp]` extra and an `xrpl_agent_id.mcp` module. Neither exists — no `mcp.py`,
+  no FastMCP reference. It was the first command in the getting-started block and
+  installed a dependency that did nothing.
+- '6 reason codes' listed 7; the code defines 8. `CREDENTIAL_TYPE_DENIED` and
+  `CREDENTIAL_EXPIRED` were missing — the latter is this release line's headline fix.
+- '124 offline tests' corrected to 201 (measured).
+- Removed a stale pytest transcript showing 'collected 12 items / 12 passed'
+  from an early version; replaced with real output.
+- Project Structure listed 3 modules and 1 test file; the real tree is 12 modules
+  plus a 5-module `dashboard/` package and 15 test modules.
+- Public API listed 5 names; `__all__` has 19. All are now listed.
+- Module map named the audit class `Journal`; it is `AuditLog`.
+- Removed a dead link to `research/07_existing_repos_assessment.md` — no such
+  directory exists.
+- 'Testnet Integration Tests (planned)' named files that do not exist and the
+  wrong environment variable; the real suite is
+  `tests/test_integration_ledger_live.py` gated on `RUN_LIVE=1`.
+
+### Added
+- **REUSE/SPDX compliance made real.** The README advertised an
+  SPDX-REUSE-compliant badge, but there was no `LICENSES/` directory, no
+  `REUSE.toml` and no `.reuse/` — `reuse lint` failed, and 29 of 78 tracked files
+  carried no license information. Added `LICENSES/MIT.txt` and `.reuse/dep5`,
+  plus a `reuse lint` CI job so the badge cannot silently rot again.
+- `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, GitHub issue and PR templates.
+- Release table entries for v0.4.1 and v0.3.0, both of which existed without one.
+
+### Changed
+- `SESSION_2026-09-29.md` moved to `docs/internal/`; it is a dated internal work
+  log and does not belong in a public repository root.
+
 ## [0.4.0] - 2026-09-30
 
 ### Fixed

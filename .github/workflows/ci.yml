@@ -58,3 +58,23 @@ jobs:
           python -m xrpl_agent_id --version
           python -m xrpl_agent_id --api > /tmp/api_surface.json
           test -s /tmp/api_surface.json
+
+  reuse:
+    name: REUSE license compliance
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install reuse
+        run: python -m pip install --upgrade pip reuse
+
+      - name: Verify REUSE compliance
+        # The README carries an SPDX-REUSE-compliant badge. That claim is only
+        # true if this passes, so it is enforced here rather than trusted.
+        run: reuse lint

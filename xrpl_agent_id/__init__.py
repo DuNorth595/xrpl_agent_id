@@ -33,7 +33,7 @@ from xrpl_agent_id.trust import (
     TrustRegistry,
 )
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 XRPL_AGENT_ID_VERSION = __version__  # canonical alias — referenced in docs/tests
 
 # When the package is installed (via `pip install -e .`), prefer the version

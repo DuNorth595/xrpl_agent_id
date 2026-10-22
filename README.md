@@ -14,14 +14,14 @@
 ## Cover Page
 
 | **Package:** `xrpl_agent_id`
-|**Version:** 0.4.0 (beta)
+|**Version:** 0.4.1 (beta)
 |**Author:** Justin Douglas
 |**Organization:** S_DevLabs (Strategic Development Labs)
 |**Contact:** S_DevLabs@outlook.com
 |**License:** MIT
 |**Python:** ≥ 3.9
 |**Dependencies:** `xrpl-py` ≥ 4.5.0
-|**Optional extras:** `mcp` (for MCP server wrapper, see §4)
+|**Optional extras:** `dev` (test runner + pre-commit)
 
 **What this is in one sentence:**
 A small Python library that gives AI agents an XRPL-native identity — a `did:xrpl` identifier, a W3C DID Document, and a way to issue / accept / verify XLS-70 Verifiable Credentials, all stored on the XRP Ledger.
@@ -32,7 +32,7 @@ Credentials on XRPL are public. Bring your own keys. Use `xrpl-py`'s `Wallet`.
 
 ---
 
-## What's new in v0.3.0
+## What's new in v0.4.1
 
 **Authorization policy layer + on-chain audit mirror.**
 
@@ -73,14 +73,14 @@ audit.record(decision)  # -> a 1-drop Payment tx with the decision hash as a mem
 
 **Highlights**
 
-- **6 stable reason codes** — `OK`, `AGENT_BANNED`, `CONTROLLER_BANNED`,
+- **8 stable reason codes** — `OK`, `AGENT_BANNED`, `CONTROLLER_BANNED`,
   `NO_CREDENTIALS`, `CREDENTIAL_MISSING`, `CREDENTIAL_REVOKED`,
-  `STALE_CREDENTIAL`
+  `CREDENTIAL_TYPE_DENIED`, `CREDENTIAL_EXPIRED`
 - **Off-chain or on-chain** audit: SQLite by default, opt-in XRPL mirror
   (1-drop self-payment, decision hash as memo)
 - **Live-tested on XRPL Testnet** — 12 transactions verified end-to-end.
   Full report at [`docs/STRESS_TEST_v0.3.0.md`](docs/STRESS_TEST_v0.3.0.md)
-- **124 offline tests passing** (was 47 in v0.2.4) — every ledger interaction
+- **201 offline tests passing** (was 47 in v0.2.4) — every ledger interaction
   is mocked so CI doesn't need testnet access
 
 **New files**
@@ -116,7 +116,7 @@ XRPL shipped the primitives needed for agent identity back in 2020-2024 — they
 - **`did:xrpl` identifiers** that resolve through any xrpl-py client
 - **W3C DID Core 1.0 compliant** DID Documents (array `@context`, `Multikey` types, proper multicodec + base58btc multibase)
 - **Verifiable Credentials** with the `credential_type` snake_case wire-format trap handled
-- **MCP-friendly design** — install with `[mcp]` extra to expose identity operations to LLM agents via the Model Context Protocol
+- **MCP-friendly design** — the surface is shaped for Model Context Protocol hosts, but the wrapper module is not written yet
 - **Zero vendor lock-in** — your keys, your ledger, your data
 
 ### 10-line Identity (the pitch)
@@ -206,20 +206,34 @@ reviewed and approved by Justin Douglas.
 ```
 xrpl_agent_id/
 ├── LICENSE                       ← MIT, Justin Douglas
+├── LICENSES/MIT.txt              ← REUSE license text (required by `reuse lint`)
+├── .reuse/dep5                   ← copyright + MIT declaration for the tree
 ├── README.md                     ← this file
+├── SECURITY.md                   ← security policy + supported versions
 ├── pyproject.toml                ← hatchling build, MIT, Python 3.9+
-├── xrpl_agent_id/                ← the package
-│   ├── __init__.py               ← public API surface (5 names)
-│   ├── __main__.py               ← `python -m xrpl_agent_id` smoke test
+├── xrpl_agent_id/                ← the package (12 modules + dashboard/)
+│   ├── __init__.py               ← public API surface (19 names in __all__)
+│   ├── __main__.py               ← `python -m xrpl_agent_id` CLI + smoke test
 │   ├── did.py                    ← XLS-40d parser + W3C DID Document
 │   ├── identity.py               ← AgentIdentity (DID + keys + credentials)
-│   └── credential.py             ← XLS-70 Credential
-└── tests/
-    ├── __init__.py
-    └── test_did.py               ← 12 tests, 0.02s runtime
+│   ├── credential.py             ← XLS-70 Credential
+│   ├── authority.py              ← Authority (issuance-only subclass)
+│   ├── trust.py                  ← TrustRegistry / TrustPolicy
+│   ├── authorization.py          ← AuthorizationPolicy (8 reason codes)
+│   ├── banned.py                 ← Ban + BannedAgentRegistry
+│   ├── audit.py                  ← AuditLog (SQLite) + XRPLMirror
+│   ├── registry.py               ← credential registry helpers
+│   └── network.py                ← network constants + client factory
+├── tests/                        ← 15 test modules, 201 passing
+└── .github/workflows/ci.yml      ← pytest matrix + `reuse lint` gate
 ```
 
+The module map below is authoritative for per-module detail.
+
 ### Public API
+
+The full public surface is 19 names, pinned by `tests/test_public_api.py`.
+The common five:
 
 ```python
 from xrpl_agent_id import (
@@ -231,6 +245,14 @@ from xrpl_agent_id import (
 )
 ```
 
+Also exported: `Authority`, `CredentialType`, `NetworkEndpoint`,
+`VerificationResult`, `TrustCheckResult`, `TrustPolicy`, `TrustRegistry`,
+`parse_did`, `get_client`, `get_network`, `NETWORK_IDS`, `NETWORKS`,
+`XRPL_AGENT_ID_VERSION`, `XRPL_AGENT_ID_VERSION_INFO`.
+
+See [`xrpl_agent_id/PUBLIC_API.md`](xrpl_agent_id/PUBLIC_API.md) for the
+stability contract on each name.
+
 ### Module Map
 
 | Module | Purpose | Status |
@@ -241,10 +263,10 @@ from xrpl_agent_id import (
 | `xrpl_agent_id.network` | Network constants + JsonRpcClient factory | Complete |
 | `xrpl_agent_id.authority` | `Authority` — issuance-only subclass of `AgentIdentity` | Complete |
 | `xrpl_agent_id.trust` | `TrustRegistry` / `TrustPolicy` — declarative credential allowlist + banlist, evaluated against an agent DID | Complete |
-| `xrpl_agent_id.authorization` | `AuthorizationPolicy` — request-level allow/deny with 6 reason codes | Complete, internal surface |
-| `xrpl_agent_id.audit` | `Journal` (SQLite) + `XRPLMirror` (1-drop on-chain audit) | Complete, internal surface |
+| `xrpl_agent_id.authorization` | `AuthorizationPolicy` — request-level allow/deny with 8 reason codes | Complete, internal surface |
+| `xrpl_agent_id.audit` | `AuditLog` (SQLite) + `XRPLMirror` (1-drop on-chain audit) | Complete, internal surface |
 | `xrpl_agent_id.banned` | `Ban` + `BannedAgentRegistry` — agent deny-list, file-backed | Complete, internal surface |
-| `xrpl_agent_id.mcp` | MCP server wrapper, optional `[mcp]` extra | Planned (Week 2) |
+| `xrpl_agent_id.mcp` | MCP server wrapper | **Not implemented** — no `mcp.py` exists |
 
 ### Design Decisions
 
@@ -253,14 +275,14 @@ from xrpl_agent_id import (
 3. **256-byte on-ledger DID Document cap respected.** W3C DID Documents can be large; the XRPL DIDSet transaction limits `DIDDocument` and `URI` fields to 256 bytes each. We emit a `DIDDocument` that's small (canonical key reference) and put rich info behind `URI` (IPFS / HTTPS).
 4. **`credential_type` snake_case trap avoided.** xrpl-py and `rippled` use `credential_type` (snake_case) inside `ledger_entry` calls, even though Python convention is `credentialType`. `Credential.to_ledger_fields()` encodes this.
 5. **No key custody by default.** We do not store, log, or transmit seeds beyond what `xrpl-py` does. For MCP contexts, the prepare/verify/submit split (mirroring `xrpl-identity-mcp`) keeps signing operations off the tool surface.
-6. **MCP wrapper ships as `[mcp]` extra, not a separate package.** One canonical install, one version, one set of docs. `pip install xrpl_agent_id[mcp]` gets you the server entry point.
+6. **An MCP wrapper is planned but not shipped.** There is no `[mcp]` extra and no `xrpl_agent_id.mcp` module. Install the base package — `pip install -e .` — and the library is fully usable.
 
 ### Dependencies
 
 | Package | Version | Why |
 |---|---|---|
 | `xrpl-py` | ≥ 4.5.0 | XRPL JSON-RPC client + transaction building |
-| `mcp` (optional) | ≥ 1.0.0 | Model Context Protocol server SDK |
+| `pre-commit` (optional) | ≥ 3.5.0 | Pre-commit hooks (seed scanner) |
 | `pytest` (dev) | ≥ 7 | Tests |
 | `ruff` (dev) | latest | Linting |
 | `mypy` (dev) | latest | Type checking |
@@ -282,15 +304,15 @@ The version of `xrpl_agent_id` is exposed in three places — pick the one that 
 
 ```python
 import xrpl_agent_id
-print(xrpl_agent_id.__version__)        # → 0.4.0
-print(xrpl_agent_id.XRPL_AGENT_ID_VERSION)   # → "0.4.0" (string form, identical)
+print(xrpl_agent_id.__version__)        # → 0.4.1
+print(xrpl_agent_id.XRPL_AGENT_ID_VERSION)   # → "0.4.1" (string form, identical)
 ```
 
 **CLI** — for scripts and CI smoke tests:
 
 ```bash
 $ python -m xrpl_agent_id --version
-xrpl_agent_id 0.4.0
+xrpl_agent_id 0.4.1
 ```
 
 `--api` (the default when no flag is given) prints the version plus the public
@@ -302,7 +324,7 @@ API surface and a DID roundtrip example.
 GET /api/version     → 200 application/json
 {
   "package":         "xrpl_agent_id",
-  "package_version": "0.4.0",
+  "package_version": "0.4.1",
   "server_version":  "0.3.0",
   "python_version":  "3.9.6",
   "xrpl_py_version": "4.5.0",
@@ -327,11 +349,13 @@ signed tag on `main` plus a changelog entry. **PyPI publishing is not planned** 
 this library is installed from source (see [§5.A Installation](#a-installation)).
 That is the supported install path; there is no `pip install xrpl_agent_id`.
 
-**Latest: [v0.4.0 — Credential expiry + lifecycle hardening](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.4.0)** (2026-09-30)
+**Latest: [v0.4.1 — release-process hardening](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.4.1)** (2026-09-30)
 
 | Version | Date | Highlights |
 |---|---|---|
+| [v0.4.1](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.4.1) | 2026-09-30 | REUSE/SPDX compliance made real (`LICENSES/` + `.reuse/dep5` + CI gate); version metadata synced across README, `__init__.py`, `PUBLIC_API.md`. |
 | [v0.4.0](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.4.0) | 2026-09-30 | `CREDENTIAL_EXPIRED` reason code is now emitted (was a silent correctness gap). 6 expiry tests. 201/201 passing. |
+| [v0.3.0](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.3.0) | 2026-09-29 | Authorization policy layer (`AuthorizationPolicy`, 8 reason codes), banned-agent registry, SQLite `AuditLog` with optional on-chain `XRPLMirror`. |
 | [v0.2.4](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.2.4) | 2026-09-28 | Dashboard, trust library, S_DevLabs branding. |
 
 Full history lives in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
@@ -343,27 +367,19 @@ Full history lives in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 ### Current Test Suite
 
 ```
-$ /usr/bin/python3 -m pytest tests/ -v
-============================= test session starts ==============================
-platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0
-rootdir: .../xrpl_agent_id
-configfile: pyproject.toml
-collected 12 items
+$ python -m pytest tests/ -q
+........................................................................ [ 34%]
+...............................ssssss................................... [ 69%]
+...............................................................          [100%]
+201 passed, 6 skipped in 5.04s
+```
 
-tests/test_did.py::test_did_from_account_mainnet                       PASSED [  8%]
-tests/test_did.py::test_did_from_account_testnet                       PASSED [ 16%]
-tests/test_did.py::test_did_from_account_unknown_network                PASSED [ 25%]
-tests/test_did.py::test_parse_did_valid                                PASSED [ 33%]
-tests/test_did.py::test_parse_did_invalid_scheme                       PASSED [ 41%]
-tests/test_did.py::test_parse_did_malformed                            PASSED [ 50%]
-tests/test_did.py::test_did_document_from_json_w3c                     PASSED [ 58%]
-tests/test_did.py::test_did_document_from_json_xls40_legacy            PASSED [ 66%]
-tests/test_did.py::test_to_json_emits_array_context                    PASSED [ 75%]
-tests/test_did.py::test_to_json_normalizes_legacy_types_to_multikey    PASSED [ 83%]
-tests/test_did.py::test_to_json_preserves_canonical_multibase          PASSED [ 91%]
-tests/test_did.py::test_did_document_size_warning                      PASSED [100%]
+The 6 skips are the live-XRPL integration tests in
+`tests/test_integration_ledger_live.py`, which self-skip unless `RUN_LIVE=1`
+is set and a testnet secret is available:
 
-============================== 12 passed in 0.02s ===============================
+```
+RUN_LIVE=1 python -m pytest tests/test_integration_ledger_live.py -v
 ```
 
 ### What the Tests Cover
@@ -396,14 +412,18 @@ pytest tests/test_did.py::test_did_from_account_mainnet -v
 pytest tests/ --cov=xrpl_agent_id --cov-report=term-missing
 ```
 
-### Testnet Integration Tests (planned)
+### Testnet Integration Tests (live, opt-in)
 
-Week 1 work will add integration tests against XRPL testnet:
-- `tests/integration/test_didset.py` — issue a real DIDSet, fetch it back
-- `tests/integration/test_credential_flow.py` — full issue → accept → verify cycle
-- `tests/integration/test_resolve_did.py` — resolution against multiple networks
+Live integration tests against XRPL testnet already exist in
+`tests/test_integration_ledger_live.py`. They self-skip by default so CI stays
+green; opt in explicitly:
 
-These will use testnet faucets and require `XRPL_TESTNET_SECRET` in the env.
+```bash
+RUN_LIVE=1 python -m pytest tests/test_integration_ledger_live.py -v
+```
+
+They require testnet credentials in the environment. CI never sets `RUN_LIVE`,
+which is why the offline run reports `201 passed, 6 skipped`.
 
 ---
 
@@ -418,13 +438,13 @@ git clone https://github.com/DuNorth595/xrpl_agent_id
 cd xrpl_agent_id
 
 # Library + dev tooling (tests, ruff, mypy)
-pip install -e ".[dev,mcp]"
+pip install -e ".[dev]"
 ```
 
 Verify it works:
 
 ```bash
-python -m xrpl_agent_id --version      # → xrpl_agent_id 0.4.0
+python -m xrpl_agent_id --version      # → xrpl_agent_id 0.4.1
 python -m pytest tests/                # → 201 passed, 6 skipped (live testnet)
 ```
 
@@ -443,7 +463,7 @@ diverged from it on these points:
 | Proof suite: custom `XrplSignature2023` | (no proof suite yet — W3C DataIntegrity to come) | Custom proof suites are not interoperable. W3C DataIntegrity proofs are. |
 | Last push: 2025-01-10 (8.5 months stale) | Active development | No commits in 8 months, no tests, no CI. |
 
-Full comparison in `research/07_existing_repos_assessment.md` (289 lines).
+The full comparison table is reproduced in Appendix B of this document.
 
 ### C. XRPL Network IDs
 
@@ -466,7 +486,7 @@ Confirmed against [XLS-37](https://github.com/XRPLF/XRPL-Standards/blob/master/X
 | Testnet end-to-end demo | +1 week | Done — `scripts/issue_agent_id.py`, results in `results/` |
 | Live issuance flow documentation | +1 week | Done — `docs/01_issuance_flow.md` |
 | PyPI v0.1.0 release | +2 weeks | **Not planned** — GitHub-only install |
-| MCP server wrapper (`[mcp]` extra) | +2-3 weeks | Planned |
+| MCP server wrapper (`xrpl_agent_id.mcp`) | +2-3 weeks | Planned — no module yet |
 | README + tutorial for EasyA submission | +3 weeks | Planned |
 
 ### E. Related Projects

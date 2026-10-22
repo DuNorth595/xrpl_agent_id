@@ -23,12 +23,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Install with: pip install xrpl_agent_id[mcp]
-# Adds the MCP server wrapper so LLM agents can call identity operations
-# directly through Claude Desktop, Cursor, or any MCP-compatible host.
-mcp = [
-    "mcp>=1.0.0",
-]
 # Install with: pip install xrpl_agent_id[dev]
 # Adds the test runner + pre-commit. Used by `pytest tests/`,
 # `.github/workflows/ci.yml`, and `.pre-commit-config.yaml`.

@@ -1,5 +1,11 @@
 # xrpl_agent_id
 
+
+> **Repository layout:** this package uses a flat layout, while the companion
+> [`xrpl_agent_log`](https://github.com/DuNorth595/xrpl_agent_log) uses a `src/` layout.
+> Both are standard Python packaging and both install correctly — only the source
+> directory location differs.
+
 > **Identity for AI agents on the XRP Ledger.**
 > W3C-compatible `did:xrpl` + XLS-70 Verifiable Credentials, in one Python package.
 > Native on-chain, no extra infra, ERC-8004-style without the EVM.

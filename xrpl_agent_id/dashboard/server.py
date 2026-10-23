@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from fnmatch import fnmatch
 import sqlite3
 import sys
 import time
@@ -194,11 +195,25 @@ _EXCLUDE_DIR_NAMES = {
 }
 _EXCLUDE_FILE_SUFFIXES = {".pyc", ".pyo", ".db", ".db-journal"}
 _EXCLUDE_FILE_SUFFIX_PARTS = {".db-shm", ".db-wal"}  # SQLite WAL-mode sidecars
-_EXCLUDE_FILE_NAMES = {"seeds.json", ".env", ".env.local"}
+_EXCLUDE_FILE_NAMES = {
+    "seeds.json", ".env", ".env.local", ".env.production", "credentials.json",
+}
+# Shape-based denylist: an exact-name list of three is defeated by renaming,
+# and this walk has already surfaced seed-bearing artifacts such as
+# results/stress_harness_live_seeds.json.
+_EXCLUDE_FILE_NAME_PATTERNS = (
+    "*seed*.json", "*secret*.json", "*wallet*.json", "*keystore*.json",
+    "*mnemonic*.json", "*_key*.json", "*keys_*.json", "*.key", "*.pem",
+)
 
 
 def _walk_project(root: Path) -> list[dict]:
-    """Walk PROJECT_ROOT, return [{rel_path, abs_path, size_bytes, kind}]."""
+    """Walk PROJECT_ROOT, return [{rel_path, size_bytes, kind}].
+
+    `rel_path` is relative to the project root on purpose. Serving the absolute
+    path told any caller the operator's home directory layout, which is the
+    only thing it added -- the dashboard never needed it.
+    """
     rows: list[dict] = []
     if not root.exists():
         return rows
@@ -213,6 +228,9 @@ def _walk_project(root: Path) -> list[dict]:
             continue
         if p.name in _EXCLUDE_FILE_NAMES:
             continue
+        if any(fnmatch(p.name.lower(), pat) for pat in _EXCLUDE_FILE_NAME_PATTERNS):
+            continue
+            continue
         try:
             rel = p.relative_to(root).as_posix()
             size = p.stat().st_size
@@ -220,7 +238,6 @@ def _walk_project(root: Path) -> list[dict]:
             continue
         rows.append({
             "rel_path": rel,
-            "abs_path": str(p),
             "size_bytes": size,
             "kind": "file",
         })
@@ -487,17 +504,42 @@ def api_verify(
             404,
         )
 
-    return (
-        {
-            "verified": True,
-            "lookup_via": lookup_via,
-            "decision_id": decision_id,
-            "memo": memo_dict,
-            "decision": _format_decision_row(row),
-            "on_chain_proof": on_chain_proof,
-        },
-        200,
-    )
+    # What "verified" is allowed to mean.
+    #
+    # A memo pasted in by the caller proves nothing about provenance.
+    # decision_id is an UNSALTED SHA-256 content hash (audit.compute_decision_id),
+    # so anyone who can read a decision can compute its id and hand-craft a memo
+    # that reproduces it. Only a memo actually fetched from a transaction
+    # (on_chain_proof set) carries chain of custody.
+    #
+    # Returning verified=true for the paste-a-blob path told an auditor a decision
+    # had reached the ledger when nothing of the sort had been demonstrated.
+    anchored = on_chain_proof is not None
+    payload = {
+        "verified": anchored,
+        "local_record_matched": True,
+        "lookup_via": lookup_via,
+        "decision_id": decision_id,
+        "memo": memo_dict,
+        "decision": _format_decision_row(row),
+        "on_chain_proof": on_chain_proof,
+    }
+    if not anchored:
+        payload["error"] = (
+            "memo matched a local audit row, but no on-chain proof was supplied. "
+            "decision_id is an unsalted content hash, so a hand-crafted memo "
+            "reproduces it; pass tx_hash (not memo_hex) to establish provenance."
+        )
+        # The caller's memo can disagree with the stored decision. Say so, rather
+        # than presenting two contradictory verdicts under one "verified" label.
+        memo_allow = memo_dict.get("allow")
+        stored_allow = payload["decision"].get("allow")
+        if memo_allow is not None and stored_allow is not None and memo_allow != stored_allow:
+            payload["warning"] = (
+                f"memo claims allow={memo_allow!r} but the stored audit row says "
+                f"allow={stored_allow!r}; the memo is not authoritative."
+            )
+    return payload, 200
 
 
 # -----------------------------------------------------------------------

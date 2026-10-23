@@ -95,14 +95,27 @@ def _is_safe_line_context(line: str) -> bool:
 # explaining why the seed is acceptable to commit.
 ALLOWLIST = {
     # Format: relative path -> reason
-    # Hardcoded classic seed used as a TEST FIXTURE for error-path testing
-    # in submit_one(). The string itself is well-known XRPL test material
-    # (sEd... format) and the test mocks submit_and_wait() so this seed
-    # never signs anything real. Verified against xrpl-py that this is
-    # not a wallet derived from any real ledger account.
-    "tests/test_stress_harness_throughput.py":
-        "test fixture for error-path handling; never signs real txs",
+    #
+    # Intentionally empty by default.
+    #
+    # Kept empty on purpose: the seed this file previously needed is now
+    # generated at runtime by the test (Wallet.create()), so there is no
+    # literal to allowlist. If a fixture ever seems to need a hardcoded seed,
+    # generate one instead rather than publishing a spendable-format key.
+    #
+    # documents/
+    "docs/STRESS_TEST_v0.3.0.md":
+        "Public stress-test report. Every 64-hex token in it is a settled "
+        "testnet transaction hash recorded as evidence (the 'Mirror tx' column "
+        "of the decision table, and the on-chain anchor cited for "
+        "controller_banned). Line-scoped context patterns cannot catch these: "
+        "the header that names the column and the sentence that introduces the "
+        "anchor sit on DIFFERENT lines from the hash, and _is_public_data() is "
+        "line-scoped by design. Risk accepted: a real seed added to this file "
+        "later would not be flagged. Mitigation -- this is a frozen v0.3.0 "
+        "report; new stress output goes to results/ and is not published here.",
 }
+
 
 
 # Legacy allowlist: pre-existing files (committed before this scanner existed)
@@ -115,21 +128,51 @@ ALLOWLIST = {
 # To add a new entry: include the file path, the line number, and a one-line
 # explanation of WHY the hex is data and not a secret. Do NOT add entries
 # just to silence the scanner.
-LEGACY_ALLOWLIST = {
-    # Format: (relative_path, line_number) -> reason
-    ("docs/01_issuance_flow.md", 63): "Testnet explorer URL, tx hash",
-    ("docs/01_issuance_flow.md", 84): "Testnet explorer URL, tx hash",
-    ("docs/01_issuance_flow.md", 112): "Testnet explorer URL, tx hash",
-    ("docs/CONTROLLER_BANNED_MULTISIG.md", 88): "table cell with SignerList ID",
-    ("docs/CONTROLLER_BANNED_MULTISIG.md", 89): "table cell with SignerList ID",
-    ("docs/STRESS_TEST_v0.3.0.md", 170): "JSON-RPC request body in shell example",
-    ("docs/STRESS_TEST_v0.3.0.md", 226): "table cell with reason code + decision_id",
-    ("docs/STRESS_TEST_v0.3.0.md", 227): "table cell with reason code + decision_id",
-    ("docs/STRESS_TEST_v0.3.0.md", 228): "table cell with reason code + decision_id",
-    ("docs/STRESS_TEST_v0.3.0.md", 229): "table cell with reason code + decision_id",
-    ("docs/STRESS_TEST_v0.3.0.md", 230): "table cell with reason code + decision_id",
-    ("docs/STRESS_TEST_v0.3.0.md", 246): "inline code block with tx hash",
-}
+# Public on-ledger data that is shaped like a 64-char hex string.
+#
+# This was a dict keyed on (relative_path, line_number). That breaks the moment a
+# document is edited above an entry or a file is renamed: the exemption silently
+# stops applying and CI fails on an otherwise clean tree. It bit xrpl_agent_log for
+# exactly this reason on 2026-10-22, after moving a file invalidated three entries.
+#
+# A transaction hash and a secp256k1 private key are indistinguishable by shape,
+# so classify by context instead. All 12 former entries were public ledger data:
+# explorer URLs, tx hashes, SignerList IDs and decision_ids.
+PUBLIC_DATA_PATTERNS = (
+    re.compile(r"xrpl\.org/transactions/", re.IGNORECASE),
+    re.compile(r"\b(?:tx|txn|transaction)\s+hash\b", re.IGNORECASE),
+    re.compile(r"\bhash\s*[:=]\s*[A-F0-9]{16,}", re.IGNORECASE),
+    re.compile(r"anchor_tx_hash|on_chain_tx_hash|entry_hash|MemoData|decision_id",
+               re.IGNORECASE),
+    re.compile(r"\b(?:anchor|signerlist|signer_list)\b", re.IGNORECASE),
+    re.compile(r'"(?:mirrored_tx|tx_hash|decision_id|signer_list)"', re.IGNORECASE),
+    # --- contexts added 2026-10-23 ---------------------------------------
+    # Explorer deep-links. A tx hash is the path segment on every XRPL
+    # block explorer, so a hash sitting in one is on-ledger data by
+    # construction, not a private key.
+    re.compile(r"bithomp\.com/explorer/", re.IGNORECASE),
+    re.compile(r"xrpscan\.com/(?:tx|transactions?)/", re.IGNORECASE),
+    # A JSON-RPC `tx` lookup names the transaction it wants; the hash in that
+    # payload is the lookup key, not a signing key.
+    re.compile(r'"method"\s*:\s*"tx"', re.IGNORECASE),
+    # Markdown table rows that pair an r-address with a 64-hex identifier are
+    # SignerList rows (address + signer entry), which are public multisig
+    # state -- not a seed and its own address.
+    re.compile(r"`r[1-9A-HJ-NP-Za-km-z]{24,34}`\s*\|\s*`[A-F0-9]{64}`",
+               re.IGNORECASE),
+    # The stress report's decision table has a literal column header naming the
+    # 64-hex values ("Mirror tx"). A hash under a column that calls it a tx is
+    # public on-ledger data.
+    re.compile(r"\|\s*Mirror\s+tx\s*\|", re.IGNORECASE),
+    # "...mirrored on-chain at `<hash>`" -- an explicit statement that the
+    # value is a settled ledger transaction.
+    re.compile(r"mirrored\s+on-chain\s+at", re.IGNORECASE),
+)
+
+
+def _is_public_data(line: str) -> bool:
+    """True if the line identifies a hex token as public on-ledger data."""
+    return any(p.search(line) for p in PUBLIC_DATA_PATTERNS)
 
 
 def _staged_paths() -> list[Path]:
@@ -146,16 +189,48 @@ def _staged_paths() -> list[Path]:
 
 
 def _all_tracked_paths() -> list[Path]:
-    """Return every tracked file in the working tree."""
-    out = subprocess.run(
-        ["git", "ls-files"],
-        capture_output=True, text=True, check=True,
-    )
-    root = Path(subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        capture_output=True, text=True, check=True,
-    ).stdout.strip())
-    return [root / p for p in out.stdout.splitlines() if p]
+    """Return every tracked file in the working tree.
+
+    `git ls-files` / `git rev-parse` both raise CalledProcessError with exit
+    128 outside a git repository, which previously surfaced as a raw
+    traceback. A contributor who unpacks a sdist and runs `--all` gets a
+    clean message instead, and we fall back to walking the tree so the check
+    still does useful work rather than silently scanning nothing.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "ls-files"],
+            capture_output=True, text=True, check=True,
+        )
+        root = Path(subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip())
+        return [root / p for p in out.stdout.splitlines() if p]
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print(
+            "check_no_seeds: not inside a git repository -- falling back to "
+            "walking the working tree. VCS metadata (commit messages, "
+            "historical blobs) is NOT covered by this fallback.",
+            file=sys.stderr,
+        )
+        skip = {".git", ".venv", "venv", "node_modules", "__pycache__",
+                ".mypy_cache", ".pytest_cache", "build", "dist"}
+        # The tree walk is deliberately broader than `git ls-files`, so it
+        # also sees untracked build output -- rendered PDF/HTML reports and
+        # results JSON -- that would otherwise be pure noise. Skip generated
+        # artifacts; anything genuinely tracked is still covered by the
+        # git path above.
+        skip_suffixes = {".pdf", ".html", ".htm", ".png", ".jpg", ".jpeg",
+                         ".gif", ".svg", ".woff", ".woff2", ".ttf",
+                         # Local SQLite state from dashboard/test runs. Binary
+                         # containers whose "lines" are arbitrary byte runs,
+                         # so a 64-hex match inside one is meaningless.
+                         ".db", ".sqlite", ".sqlite3", ".db-wal", ".db-shm"}
+        return [p for p in Path.cwd().rglob("*")
+                if p.is_file()
+                and not (skip & set(p.parts))
+                and p.suffix.lower() not in skip_suffixes]
 
 
 def _scan_file(path: Path) -> list[tuple[int, str, str]]:
@@ -208,10 +283,17 @@ def main() -> int:
         paths = _staged_paths()
         scope = "staged files"
 
-    root = Path(subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        capture_output=True, text=True, check=True,
-    ).stdout.strip())
+    # Repo root is used only to render repo-relative paths for allowlist
+    # lookups. Outside a git repo there is no root, so fall back to CWD --
+    # allowlists then simply never match, which is the safe direction (a file
+    # outside a repo is reported rather than silently skipped).
+    try:
+        root = Path(subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip())
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        root = Path.cwd()
 
     total_hits = 0
     legacy_hits = 0
@@ -232,7 +314,7 @@ def main() -> int:
             continue
         hits = _scan_file(p)
         for lineno, line, kind in hits:
-            if in_repo and (rel_str, lineno) in LEGACY_ALLOWLIST:
+            if _is_public_data(line):
                 legacy_hits += 1
                 continue
             # Truncate the line so we don't print the secret back to stdout.

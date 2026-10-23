@@ -160,7 +160,7 @@ class XRPLMirror:
 
         Returns the tx hash. Raises on submission failure.
         """
-        from xrpl.transaction import submit_and_wait
+        from xrpl_agent_id.tx_submit import submit_with_retry
         from xrpl.models.transactions import Payment, Memo
         from xrpl_agent_id.network import get_client
 
@@ -190,8 +190,8 @@ class XRPLMirror:
             ],
         )
         client = get_client(self.network)
-        response = submit_and_wait(tx, client, self.wallet)
-        tx_hash = (response.result or {}).get("hash", "")
+        result = submit_with_retry(tx, client, self.wallet)
+        tx_hash = (result or {}).get("hash", "")
         return tx_hash
 
 

@@ -312,7 +312,7 @@ print(xrpl_agent_id.XRPL_AGENT_ID_VERSION)   # → "0.4.2" (string form, identic
 
 ```bash
 $ python -m xrpl_agent_id --version
-xrpl_agent_id 0.4.1
+xrpl_agent_id 0.4.2
 ```
 
 `--api` (the default when no flag is given) prints the version plus the public

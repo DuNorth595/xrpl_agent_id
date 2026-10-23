@@ -20,7 +20,7 @@
 ## Cover Page
 
 | **Package:** `xrpl_agent_id`
-|**Version:** 0.4.2 (beta)
+|**Version:** 0.4.3 (beta)
 |**Author:** Justin Douglas
 |**Organization:** S_DevLabs (Strategic Development Labs)
 |**Contact:** S_DevLabs@outlook.com
@@ -310,15 +310,15 @@ The version of `xrpl_agent_id` is exposed in three places — pick the one that 
 
 ```python
 import xrpl_agent_id
-print(xrpl_agent_id.__version__)        # → 0.4.2
-print(xrpl_agent_id.XRPL_AGENT_ID_VERSION)   # → "0.4.2" (string form, identical)
+print(xrpl_agent_id.__version__)        # → 0.4.3
+print(xrpl_agent_id.XRPL_AGENT_ID_VERSION)   # → "0.4.3" (string form, identical)
 ```
 
 **CLI** — for scripts and CI smoke tests:
 
 ```bash
 $ python -m xrpl_agent_id --version
-xrpl_agent_id 0.4.2
+xrpl_agent_id 0.4.3
 ```
 
 `--api` (the default when no flag is given) prints the version plus the public
@@ -330,7 +330,7 @@ API surface and a DID roundtrip example.
 GET /api/version     → 200 application/json
 {
   "package":         "xrpl_agent_id",
-  "package_version": "0.4.2",
+  "package_version": "0.4.3",
   "server_version":  "0.3.0",
   "python_version":  "3.9.6",
   "xrpl_py_version": "4.5.0",
@@ -355,7 +355,7 @@ signed tag on `main` plus a changelog entry. **PyPI publishing is not planned** 
 this library is installed from source (see [§5.A Installation](#a-installation)).
 That is the supported install path; there is no `pip install xrpl_agent_id`.
 
-**Latest: [v0.4.2 — docs corrected to match the code](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.4.2)** (2026-10-22)
+**Latest: [v0.4.3 — security fixes: credential acceptance, expiry, DID validation, ban list, dashboard verification](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.4.3)** (2026-10-23)
 
 **Previous: [v0.4.1 — release-process hardening](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.4.1)** (2026-09-30)
 
@@ -452,7 +452,7 @@ pip install -e ".[dev]"
 Verify it works:
 
 ```bash
-python -m xrpl_agent_id --version      # → xrpl_agent_id 0.4.2
+python -m xrpl_agent_id --version      # → xrpl_agent_id 0.4.3
 python -m pytest tests/                # → 201 passed, 6 skipped (live testnet)
 ```
 

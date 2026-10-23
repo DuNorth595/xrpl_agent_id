@@ -3,7 +3,7 @@
 """Smoke-test the Quickstart's code patterns against mocked XRPL client.
 
 Mirrors docs/QUICKSTART.md exactly. If these tests pass, the Quickstart's
-code blocks are correct against xrpl_agent_id 0.4.2 — every import resolves,
+code blocks are correct against xrpl_agent_id 0.4.3 — every import resolves,
 every call signature is accepted, and the documented output strings match.
 
 Run with:

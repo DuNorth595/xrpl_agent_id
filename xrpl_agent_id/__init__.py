@@ -33,7 +33,7 @@ from xrpl_agent_id.trust import (
     TrustRegistry,
 )
 
-__version__ = "0.4.2"
+__version__ = "0.4.3"
 XRPL_AGENT_ID_VERSION = __version__  # canonical alias — referenced in docs/tests
 
 # The source literal above is authoritative. It is the version of the code

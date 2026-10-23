@@ -4,7 +4,51 @@ All notable changes to `xrpl_agent_id` are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.3] - 2026-10-23
+
+### Security
+- **Credentials were treated as accepted when they were not.** XRPL separates a
+  credential *existing* from a credential being *accepted*: `lsfAccepted` is only
+  set when the subject signs `CredentialAccept`, and XLS-70 says plainly that a
+  credential "should not be considered 'valid' until it has been accepted." The
+  library checked existence and called it acceptance, so a credential the subject
+  never accepted could be counted as held. `credential_is_accepted()` now reads
+  the `lsfAccepted` bit (`0x00010000`) from the raw ledger node and fails closed —
+  an unparseable response is treated as not accepted, so malformed data cannot
+  widen access.
+- **Credential expiry was never checked on the real path.** `_parse_credential_obj`
+  did not carry the ledger's `Expiration` field onto the `Credential` object, so
+  `authorization.py`'s `if cred.expiration is not None` guard was always False for
+  any ledger-parsed credential and the `CREDENTIAL_EXPIRED` branch was
+  unreachable. An expired credential still counted as valid. `Expiration` is a
+  real optional `UInt32` per XLS-70 and is now parsed.
+- **DID documents were not validated.** `did_from_account()` interpolated any
+  string into a DID, so `did_from_account("../../etc/passwd")` produced a
+  well-formed DID pointing at an attacker-chosen path. Separately, a DID document
+  was accepted whatever its `id` claimed — account A could publish a document
+  whose `id` was account B's, and any consumer keying on `doc.id` would attribute
+  B's keys to A. That is identity spoofing requiring no key material. The
+  document's `id` must now match the DID being resolved.
+- **A missing ban file silently allowed everyone.** A missing `banned.json`
+  returned an empty deny-list with no indication anything was wrong, so a typo, a
+  moved file, or running from a different working directory meant every banned
+  agent was allowed — a security control failing open. The default path now
+  resolves against the user's home directory rather than the CWD, and a missing
+  file emits a `RuntimeWarning` naming the resolved path. A `strict=True` option
+  raises instead of warning; it is opt-in because the file is untracked and
+  defaulting strict would break first use for every new adopter.
+- **The dashboard reported unverifiable decisions as verified.** `decision_id` is
+  an *unsalted* SHA-256 content hash, so anyone who could read a decision could
+  compute its id and hand-craft a memo reproducing it — the endpoint returned
+  `verified: true` for a caller-supplied memo, demonstrating nothing had reached
+  the ledger. `verified` is now true only when `on_chain_proof` is present. The
+  separate `local_record_matched` field still reports the local match, so the
+  distinction stays visible. The same commit stops `/api/files` returning absolute
+  paths (which disclosed the operator's home directory layout) and replaces the
+  three-filename seed denylist with pattern-based matching across seeds,
+  secrets, wallets, keystores, mnemonics, keys, and PEM files.
+
+Full disclosure and reasoning: `docs/03_known_issues.md`.
 
 ### Fixed
 - **Live-ledger tests failed roughly 1 run in 4 on public Testnet and Devnet**

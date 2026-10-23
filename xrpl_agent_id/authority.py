@@ -164,7 +164,12 @@ def _check_credential(client, subject: str, issuer: str, credential_type: bytes)
         )
     except Exception:
         return False
-    return (response.result or {}).get("node") is not None
+    node = (response.result or {}).get("node")
+    if node is None:
+        return False
+    # Existence is not acceptance (XLS-70 lsfAccepted).
+    from xrpl_agent_id.credential import credential_is_accepted
+    return credential_is_accepted(node)
 
 
 def _did_to_addr(did: str) -> str:

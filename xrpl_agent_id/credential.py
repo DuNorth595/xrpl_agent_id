@@ -139,7 +139,9 @@ class Credential:
             credential_type=bytes.fromhex(cred_type_hex),
             uri=bytes.fromhex(uri_hex).decode("utf-8") if uri_hex else None,
             expiration=expiration,
-            accepted=True,  # existence in ledger implies accepted (post XLS-70d)
+            # XLS-70: CredentialCreate leaves Flags at 0; only CredentialAccept sets
+            # lsfAccepted. Hardcoding True made CREDENTIAL_REVOKED unreachable here.
+            accepted=credential_is_accepted(entry),
         )
 
     def to_w3c_vc(self) -> dict:
@@ -155,7 +157,11 @@ class Credential:
             ],
             "type": ["VerifiableCredential", self.credential_type.decode("ascii", errors="replace")],
             "issuer": self.issuer,
-            "issuanceDate": _ripple_to_iso(self.expiration),  # placeholder if no issuance timestamp
+            # XLS-70 records no issuance timestamp on the credential object, so
+            # there is nothing truthful for issuanceDate. The previous code put the
+            # EXPIRATION there, handing consumers a credential that appeared to be
+            # issued on the day it lapsed.
+            "validUntil": _ripple_to_iso(self.expiration),
             "credentialSubject": {
                 "id": self.subject,
             },
@@ -174,3 +180,26 @@ def _ripple_to_iso(ripple_seconds: int | None) -> str | None:
 
     dt = datetime.fromtimestamp(ripple_seconds + RIPPLE_EPOCH, tz=timezone.utc)
     return dt.isoformat()
+
+
+# XLS-70 lsfAccepted. CredentialCreate sets Flags=0; only CredentialAccept sets
+# lsfAccepted. "Credential exists" and "subject accepted it" are different facts,
+# and conflating them is a silent-pass security failure.
+_LSF_CREDENTIAL_ACCEPTED = 0x00010000
+
+
+def credential_is_accepted(node: dict) -> bool:
+    """True iff a raw ledger credential node carries lsfAccepted.
+
+    Accepts either a `Flags` int or a `flags` int from a JSON-RPC response.
+    Anything unparseable is treated as NOT accepted (fail closed).
+    """
+    if not isinstance(node, dict):
+        return False
+    for key in ("Flags", "flags"):
+        if key in node:
+            try:
+                return bool(int(node[key]) & _LSF_CREDENTIAL_ACCEPTED)
+            except (TypeError, ValueError):
+                return False
+    return False

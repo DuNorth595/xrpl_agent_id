@@ -233,6 +233,11 @@ class AgentIdentity:
         node = (response.result or {}).get("node")
         if node is None:
             return False
+        # Existence is not acceptance: XLS-70 sets lsfAccepted only when the
+        # subject signs. An issuer-created credential nobody accepted must
+        # not count as held.
+        from xrpl_agent_id.credential import credential_is_accepted
+        return credential_is_accepted(node)
 
 
     def resolve_did_document(self) -> DIDDocument:

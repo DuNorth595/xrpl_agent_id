@@ -247,11 +247,24 @@ class AgentRegistry:
         subject_addr = obj.get("Subject", "")
         issuer_did = did_from_account(issuer_addr, network=self.network) if issuer_addr else ""
         subject_did = did_from_account(subject_addr, network=self.network) if subject_addr else ""
+        # XLS-70 stores expiration as Ripple epoch seconds; 0 means "never expires".
+        # This MUST be carried into the Credential. Without it, cred.expiration stays
+        # None and the CREDENTIAL_EXPIRED branch in authorization.py is unreachable
+        # for every credential parsed off the ledger -- which is exactly what shipped.
+        expiration = obj.get("Expiration")
+        if expiration is not None:
+            try:
+                expiration = int(expiration)
+            except (TypeError, ValueError):
+                expiration = None
+            if expiration == 0:
+                expiration = None
         return Credential(
             issuer=issuer_did,
             subject=subject_did,
             credential_type=cred_type_bytes,
             uri=uri,
+            expiration=expiration,
             accepted=accepted,
         )
 

@@ -2,18 +2,17 @@
 
 Disclosed defects in `xrpl_agent_id`, with the version that fixed each one.
 
-Everything listed here is **fixed on `main`**. None has a numbered release yet:
-the latest tag is `v0.4.2`, which predates all five fixes. Until a release is cut,
-pip-installing `xrpl_agent_id` gives you the affected versions.
+Everything listed here shipped in **v0.4.3** (2026-10-23). All five are fixed.
+If you are on `v0.4.2` or earlier, you have every one of them.
 
 This page exists so adopters can see what was wrong, when it was found, and why
 the tests missed it — rather than having to rediscover any of it.
 
-## Fixed on `main`, unreleased
+## Fixed in v0.4.3
 
 ### 1. Credentials were treated as accepted when they were not
 
-**Status:** fixed on `main`, unreleased
+**Status:** fixed in v0.4.3
 **Component:** `credential.py`, `identity.py`, `authority.py`
 
 XRPL distinguishes a credential existing from a credential being accepted. When
@@ -31,7 +30,7 @@ accepted, so a malformed response cannot widen access.
 
 ### 2. Credential expiry was never checked on the real path
 
-**Status:** fixed on `main`, unreleased
+**Status:** fixed in v0.4.3
 **Component:** `registry.py`, `authorization.py`
 
 `_parse_credential_obj` did not carry the ledger's `Expiration` field onto the
@@ -56,11 +55,11 @@ production, so both bugs were invisible to CI.
 pre-fix tree. That is the general lesson: a test that constructs its own inputs
 proves nothing about how the library behaves on real ledger data.
 
-## Fixed on `main`, unreleased
+## Fixed in v0.4.3
 
 ### 3. DID documents were not validated
 
-**Status:** fixed on `main`, unreleased
+**Status:** fixed in v0.4.3
 **Component:** `did.py`
 
 Two unvalidated-input paths:
@@ -75,7 +74,7 @@ Two unvalidated-input paths:
 
 ### 4. A missing ban file silently allowed everyone
 
-**Status:** fixed on `main`, unreleased
+**Status:** fixed in v0.4.3
 **Component:** `banned.py`
 
 A missing ban file returned an empty deny-list in silence. A typo, a moved file,
@@ -95,7 +94,7 @@ adopter.
 
 ### 5. The dashboard reported unverifiable decisions as verified
 
-**Status:** fixed on `main`, unreleased
+**Status:** fixed in v0.4.3
 **Component:** `dashboard/server.py`
 
 Three issues in the local operations dashboard:

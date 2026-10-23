@@ -16,7 +16,7 @@ are not updated. New results go to `results/` in the repository root.
 
 ## Before you rely on credential authorization
 
-`lsfAccepted` and `Expiration` handling were fixed after `v0.4.2` was tagged.
-Both defects let a credential be counted as valid when it should not have been.
-See [03_known_issues.md](03_known_issues.md) — and check which version you
-actually have installed.
+Five security defects were fixed in **v0.4.3**. Two of them let a credential be
+counted as valid when it should not have been. See
+[03_known_issues.md](03_known_issues.md) — and check which version you actually
+have installed.

@@ -23,7 +23,7 @@ def test_did_from_account_testnet():
 
 def test_did_from_account_unknown_network():
     with pytest.raises(ValueError, match="Unknown network"):
-        did_from_account("rXXX", "fakenet")
+        did_from_account("rhoAus6o6Mb8AvqAnAC49W9BaXsEd2Gitw", "fakenet")
 
 
 def test_parse_did_valid():

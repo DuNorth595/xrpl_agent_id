@@ -40,7 +40,7 @@ def _cred(
     )
 
 
-def _record(addr: str = "rSUBJ", controllers=None, creds=None):
+def _record(addr: str = "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", controllers=None, creds=None):
     rec = MagicMock()
     rec.agent_address = addr
     rec.agent_did = f"did:xrpl:2:{addr}"
@@ -79,7 +79,7 @@ class TestEmptyPolicy:
     def test_no_rules_no_bans_allows(self, policy_with, tmp_bans):
         rec = _record()
         pol = policy_with(rec, bans=tmp_bans)
-        decision = pol.evaluate("rSUBJ")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is True
         assert decision.reasons[0].code == ReasonCode.OK
 
@@ -90,39 +90,39 @@ class TestEmptyPolicy:
 
 class TestBannedDenial:
     def test_banned_address_denies(self, policy_with, tmp_bans):
-        tmp_bans.add(Ban(address="rSUBJ", reason="spam", added_by="sec"))
+        tmp_bans.add(Ban(address="rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", reason="spam", added_by="sec"))
         rec = _record()
         pol = policy_with(rec)
-        decision = pol.evaluate("rSUBJ")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is False
         codes = [r.code for r in decision.reasons]
         assert ReasonCode.AGENT_BANNED in codes
 
     def test_banned_controller_denies(self, policy_with, tmp_bans):
-        tmp_bans.add(Ban(address="rSignerX", reason="bad actor", added_by="sec"))
-        rec = _record(controllers=["rSUBJ", "rSignerX"])
+        tmp_bans.add(Ban(address="rGmXg26zSFPByqjXTs6omn9oGDn9BaSdNV", reason="bad actor", added_by="sec"))
+        rec = _record(controllers=["rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", "rGmXg26zSFPByqjXTs6omn9oGDn9BaSdNV"])
         pol = policy_with(rec)
-        decision = pol.evaluate("rSUBJ")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is False
         codes = [r.code for r in decision.reasons]
         assert ReasonCode.CONTROLLER_BANNED in codes
 
     def test_nonbanned_controller_allows(self, policy_with, tmp_bans):
-        rec = _record(controllers=["rSUBJ", "rSignerY"])
+        rec = _record(controllers=["rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", "rNaxhGaV5ee2MvkQa7XA82PftHrvVMNyTi"])
         pol = policy_with(rec)
-        decision = pol.evaluate("rSUBJ")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is True
 
     def test_expired_ban_does_not_deny(self, policy_with, tmp_bans):
         tmp_bans.add(Ban(
-            address="rSUBJ",
+            address="rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty",
             reason="old issue",
             added_by="sec",
             expires_at="2020-01-01T00:00:00+00:00",
         ))
         rec = _record()
         pol = policy_with(rec)
-        decision = pol.evaluate("rSUBJ")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is True
 
 
@@ -134,53 +134,53 @@ class TestRequiredCredential:
     def test_missing_required_credential_denies(self, policy_with):
         rec = _record(creds=[])
         pol = policy_with(rec)
-        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
-        decision = pol.evaluate("rSUBJ")
+        pol.require_credential(issuer="r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", credential_type=b"KYC")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is False
         codes = [r.code for r in decision.reasons]
         assert ReasonCode.NO_CREDENTIALS in codes
 
     def test_having_required_credential_allows(self, policy_with):
-        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=True)])
+        rec = _record(creds=[_cred("r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", b"KYC", accepted=True)])
         pol = policy_with(rec)
-        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
-        decision = pol.evaluate("rSUBJ")
+        pol.require_credential(issuer="r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", credential_type=b"KYC")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is True
 
     def test_unaccepted_credential_denies(self, policy_with):
         # credential exists but subject hasn't accepted it
-        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=False)])
+        rec = _record(creds=[_cred("r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", b"KYC", accepted=False)])
         pol = policy_with(rec)
-        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
-        decision = pol.evaluate("rSUBJ")
+        pol.require_credential(issuer="r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", credential_type=b"KYC")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is False
         codes = [r.code for r in decision.reasons]
         assert ReasonCode.CREDENTIAL_REVOKED in codes
 
     def test_wrong_issuer_denies(self, policy_with):
         # Cred is from rWRONG, but we require from rAUDIT
-        rec = _record(creds=[_cred("rWRONG", "rSUBJ", b"KYC", accepted=True)])
+        rec = _record(creds=[_cred("rwyJsrn9e3WANq1E11osgyTyvP6jdtzmL1", "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", b"KYC", accepted=True)])
         pol = policy_with(rec)
-        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
-        decision = pol.evaluate("rSUBJ")
+        pol.require_credential(issuer="r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", credential_type=b"KYC")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is False
         codes = [r.code for r in decision.reasons]
         assert ReasonCode.CREDENTIAL_MISSING in codes
 
     def test_any_issuer_matches_correct_type(self, policy_with):
-        rec = _record(creds=[_cred("rANYONE", "rSUBJ", b"KYC", accepted=True)])
+        rec = _record(creds=[_cred("rANYONE", "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", b"KYC", accepted=True)])
         pol = policy_with(rec)
         pol.require_credential(issuer=None, credential_type=b"KYC")
-        decision = pol.evaluate("rSUBJ")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is True
 
     def test_multiple_required_all_must_pass(self, policy_with):
         # Agent has only one of two required creds
-        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=True)])
+        rec = _record(creds=[_cred("r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", b"KYC", accepted=True)])
         pol = policy_with(rec)
-        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
+        pol.require_credential(issuer="r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", credential_type=b"KYC")
         pol.require_credential(issuer="rEVAL", credential_type=b"EVAL_PASS")
-        decision = pol.evaluate("rSUBJ")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is False
         codes = [r.code for r in decision.reasons]
         assert ReasonCode.CREDENTIAL_MISSING in codes
@@ -192,19 +192,19 @@ class TestRequiredCredential:
 
 class TestDeniedCredentialType:
     def test_holding_denied_type_denies(self, policy_with):
-        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"BANNED_TYPE", accepted=True)])
+        rec = _record(creds=[_cred("r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", b"BANNED_TYPE", accepted=True)])
         pol = policy_with(rec)
         pol.deny_credential_type(b"BANNED_TYPE")
-        decision = pol.evaluate("rSUBJ")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is False
         codes = [r.code for r in decision.reasons]
         assert ReasonCode.CREDENTIAL_TYPE_DENIED in codes
 
     def test_not_holding_denied_type_allows(self, policy_with):
-        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"OTHER_TYPE", accepted=True)])
+        rec = _record(creds=[_cred("r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", b"OTHER_TYPE", accepted=True)])
         pol = policy_with(rec)
         pol.deny_credential_type(b"BANNED_TYPE")
-        decision = pol.evaluate("rSUBJ")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is True
 
 
@@ -214,10 +214,10 @@ class TestDeniedCredentialType:
 
 class TestDecisionShape:
     def test_deny_reasons_property_filters_out_ok(self, policy_with, tmp_bans):
-        tmp_bans.add(Ban(address="rSUBJ", reason="bad", added_by="sec"))
+        tmp_bans.add(Ban(address="rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", reason="bad", added_by="sec"))
         rec = _record()
         pol = policy_with(rec, bans=tmp_bans)
-        decision = pol.evaluate("rSUBJ")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         # Should have AGENT_BANNED deny reason, no OK mixed in.
         for r in decision.deny_reasons:
             assert r.code != ReasonCode.OK
@@ -225,22 +225,22 @@ class TestDecisionShape:
     def test_summary_allow_form(self, policy_with):
         rec = _record()
         pol = policy_with(rec)
-        decision = pol.evaluate("rSUBJ")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.summary().startswith("✓ ALLOW")
 
     def test_summary_deny_form_includes_codes(self, policy_with):
         rec = _record(creds=[])
         pol = policy_with(rec)
-        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
-        decision = pol.evaluate("rSUBJ")
+        pol.require_credential(issuer="r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", credential_type=b"KYC")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.summary().startswith("✗ DENY")
         assert "NO_CREDENTIALS" in decision.summary()
 
     def test_to_json_serializable(self, policy_with):
-        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=True)])
+        rec = _record(creds=[_cred("r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", b"KYC", accepted=True)])
         pol = policy_with(rec)
-        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
-        decision = pol.evaluate("rSUBJ", context=RequestContext(resource="/api/x"))
+        pol.require_credential(issuer="r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", credential_type=b"KYC")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", context=RequestContext(resource="/api/x"))
         import json
         j = decision.to_json()
         parsed = json.loads(j)
@@ -250,7 +250,7 @@ class TestDecisionShape:
     def test_request_context_auto_filled(self, policy_with):
         rec = _record()
         pol = policy_with(rec)
-        decision = pol.evaluate("rSUBJ")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.request is not None
         assert decision.request.request_id.startswith("req-")
         assert decision.request.requested_at.endswith("+00:00") or "T" in decision.request.requested_at
@@ -264,7 +264,7 @@ class TestFluentRules:
     def test_require_returns_self_for_chaining(self, policy_with):
         rec = _record()
         pol = policy_with(rec)
-        result = pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
+        result = pol.require_credential(issuer="r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", credential_type=b"KYC")
         assert result is pol
 
     def test_deny_returns_self_for_chaining(self, policy_with):
@@ -343,10 +343,10 @@ class TestCredentialExpiry:
 
     def test_expired_credential_denies(self, policy_with):
         # expiration in the past (Ripple epoch = 1 second after XRPL_EPOCH)
-        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=True, expiration=1)])
+        rec = _record(creds=[_cred("r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", b"KYC", accepted=True, expiration=1)])
         pol = policy_with(rec)
-        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
-        decision = pol.evaluate("rSUBJ")
+        pol.require_credential(issuer="r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", credential_type=b"KYC")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is False
         codes = [r.code for r in decision.reasons]
         assert ReasonCode.CREDENTIAL_EXPIRED in codes
@@ -358,28 +358,28 @@ class TestCredentialExpiry:
         # expiration far in the future (Ripple epoch ~ year 2050)
         future_expiry = 2_500_000_000  # well past current Ripple epoch
         rec = _record(
-            creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=True, expiration=future_expiry)]
+            creds=[_cred("r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", b"KYC", accepted=True, expiration=future_expiry)]
         )
         pol = policy_with(rec)
-        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
-        decision = pol.evaluate("rSUBJ")
+        pol.require_credential(issuer="r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", credential_type=b"KYC")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is True
 
     def test_no_expiration_credential_allows(self, policy_with):
         # No expiration set — same as the original happy path
-        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=True, expiration=None)])
+        rec = _record(creds=[_cred("r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", b"KYC", accepted=True, expiration=None)])
         pol = policy_with(rec)
-        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
-        decision = pol.evaluate("rSUBJ")
+        pol.require_credential(issuer="r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", credential_type=b"KYC")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is True
 
     def test_expired_takes_precedence_over_unaccepted(self, policy_with):
         # Both flags true — should fire EXPIRED, not REVOKED.
         # (Expiry is the more specific signal: "credential is dead".)
-        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=False, expiration=1)])
+        rec = _record(creds=[_cred("r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", b"KYC", accepted=False, expiration=1)])
         pol = policy_with(rec)
-        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
-        decision = pol.evaluate("rSUBJ")
+        pol.require_credential(issuer="r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", credential_type=b"KYC")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is False
         codes = [r.code for r in decision.reasons]
         assert ReasonCode.CREDENTIAL_EXPIRED in codes
@@ -389,23 +389,23 @@ class TestCredentialExpiry:
         # If the policy doesn't require this credential, expiry is irrelevant
         # to the decision (we don't pre-emptively deny on expired creds unless
         # they're in a require rule).
-        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=True, expiration=1)])
+        rec = _record(creds=[_cred("r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", b"KYC", accepted=True, expiration=1)])
         pol = policy_with(rec)
         # No require_credential — empty policy
-        decision = pol.evaluate("rSUBJ")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         assert decision.allow is True
         codes = [r.code for r in decision.reasons]
         assert ReasonCode.CREDENTIAL_EXPIRED not in codes
 
     def test_expired_credential_reason_includes_timestamps(self, policy_with):
-        rec = _record(creds=[_cred("rAUDIT", "rSUBJ", b"KYC", accepted=True, expiration=42)])
+        rec = _record(creds=[_cred("r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", "rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", b"KYC", accepted=True, expiration=42)])
         pol = policy_with(rec)
-        pol.require_credential(issuer="rAUDIT", credential_type=b"KYC")
-        decision = pol.evaluate("rSUBJ")
+        pol.require_credential(issuer="r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", credential_type=b"KYC")
+        decision = pol.evaluate("rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty")
         expired_reasons = [r for r in decision.reasons if r.code == ReasonCode.CREDENTIAL_EXPIRED]
         assert len(expired_reasons) == 1
         r = expired_reasons[0]
         assert r.credential_type == b"KYC"
-        assert r.issuer == "rAUDIT"
+        assert r.issuer == "r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd"
         assert "42" in r.detail  # expiration value present in detail
         assert "Ripple epoch" in r.detail

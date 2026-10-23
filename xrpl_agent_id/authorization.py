@@ -41,7 +41,7 @@ Usage:
     policy.require_credential(issuer="rEval...", credential_type=b"EVAL_PASS")
 
     decision = policy.evaluate(
-        "did:xrpl:2:rAgent...",
+        "did:xrpl:2:r6eQqpRNmwFubHw7fyiP9uL9YcZkVsQ8n...",
         context=RequestContext(request_id="req-42", resource="/api/transfer"),
     )
     if decision.allow:

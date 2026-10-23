@@ -22,7 +22,7 @@ from xrpl_agent_id.authorization import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
-def _decision(allow=True, agent="did:xrpl:2:rSUBJ", reasons=None) -> AuthorizationDecision:
+def _decision(allow=True, agent="did:xrpl:2:rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty", reasons=None) -> AuthorizationDecision:
     if reasons is None:
         reasons = [AuthorizationReason(code=ReasonCode.OK, detail="ok")]
     return AuthorizationDecision(
@@ -59,13 +59,13 @@ class TestAuditLogRecord:
         recs = log.query()
         assert len(recs) == 1
         assert recs[0].allow is False
-        assert recs[0].agent_did == "did:xrpl:2:rSUBJ"
+        assert recs[0].agent_did == "did:xrpl:2:rHk9ELHHvU8sXrWhwvaktq4QJ8sXya2aty"
         assert recs[0].extra() == {"source": "test"}
 
     def test_reasons_roundtrip(self, log):
         reasons = [
             AuthorizationReason(code=ReasonCode.AGENT_BANNED, detail="bad actor"),
-            AuthorizationReason(code=ReasonCode.CREDENTIAL_MISSING, detail="no creds", issuer="rAUDIT", credential_type=b"KYC"),
+            AuthorizationReason(code=ReasonCode.CREDENTIAL_MISSING, detail="no creds", issuer="r4QM7wKWAB3yDsEGnrJbicQdGQ8QmMnNrd", credential_type=b"KYC"),
         ]
         d = _decision(allow=False, reasons=reasons)
         log.record(d)

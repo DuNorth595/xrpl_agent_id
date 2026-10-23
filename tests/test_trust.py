@@ -23,7 +23,7 @@ from xrpl_agent_id.trust import TrustCheckResult, TrustPolicy, TrustRegistry
 class TestVerificationResult:
     def test_all_satisfied_when_every_result_true(self):
         r = VerificationResult(
-            agent_did="did:xrpl:1:rAgent",
+            agent_did="did:xrpl:1:r6eQqpRNmwFubHw7fyiP9uL9YcZkVsQ8n",
             results={"rIssuer1:AABBCC": True, "rIssuer2:DDEEFF": True},
         )
         assert r.all_satisfied is True
@@ -31,9 +31,9 @@ class TestVerificationResult:
 
     def test_all_satisfied_false_when_any_missing(self):
         r = VerificationResult(
-            agent_did="did:xrpl:1:rAgent",
+            agent_did="did:xrpl:1:r6eQqpRNmwFubHw7fyiP9uL9YcZkVsQ8n",
             results={"rIssuer1:AABBCC": True, "rIssuer2:DDEEFF": False},
-            missing=[("rIssuer2", bytes.fromhex("DDEEFF"))],
+            missing=[("rEePd7C3J9AbtWcDqh36PD6TvZmrnFZwHc", bytes.fromhex("DDEEFF"))],
         )
         assert r.all_satisfied is False
         assert "1/2" in r.summary()
@@ -45,10 +45,10 @@ class TestVerificationResult:
 
 class TestTrustPolicyMatches:
     def test_specific_issuer_and_type_match(self):
-        p = TrustPolicy(issuers={"rIssuer1"}, credential_type=b"KYC", action="require")
-        assert p.matches("rIssuer1", b"KYC") is True
-        assert p.matches("rIssuer1", b"EVAL") is False
-        assert p.matches("rIssuer2", b"KYC") is False
+        p = TrustPolicy(issuers={"rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf"}, credential_type=b"KYC", action="require")
+        assert p.matches("rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf", b"KYC") is True
+        assert p.matches("rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf", b"EVAL") is False
+        assert p.matches("rEePd7C3J9AbtWcDqh36PD6TvZmrnFZwHc", b"KYC") is False
 
     def test_any_issuer(self):
         p = TrustPolicy(issuers=None, credential_type=b"KYC", action="require")
@@ -56,9 +56,9 @@ class TestTrustPolicyMatches:
         assert p.matches("rOtherIssuer", b"KYC") is True
 
     def test_any_type(self):
-        p = TrustPolicy(issuers={"rIssuer1"}, credential_type=None, action="require")
-        assert p.matches("rIssuer1", b"ANY") is True
-        assert p.matches("rIssuer1", b"OTHER") is True
+        p = TrustPolicy(issuers={"rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf"}, credential_type=None, action="require")
+        assert p.matches("rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf", b"ANY") is True
+        assert p.matches("rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf", b"OTHER") is True
 
 
 # ---------------------------------------------------------------------------
@@ -68,10 +68,10 @@ class TestTrustPolicyMatches:
 class TestTrustRegistryRuleConstruction:
     def test_require_string_issuer(self):
         reg = TrustRegistry(network="testnet")
-        reg.require(issuer="rIssuer1", credential_type=b"KYC")
+        reg.require(issuer="rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf", credential_type=b"KYC")
         assert len(reg._rules) == 1
         assert reg._rules[0].action == "require"
-        assert reg._rules[0].issuers == {"rIssuer1"}
+        assert reg._rules[0].issuers == {"rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf"}
         assert reg._rules[0].credential_type == b"KYC"
 
     def test_require_iterable_issuers(self):
@@ -100,6 +100,10 @@ class TestTrustRegistryRuleConstruction:
 # ---------------------------------------------------------------------------
 
 class TestTrustRegistryCheck:
+    # A real LedgerEntry credential response is a dict carrying Flags; the
+    # lsfAccepted bit (0x00010000) is what separates an accepted credential from
+    # one the subject never signed. Mocking node as a bare string let a credential
+    # that merely EXISTS satisfy a trust requirement -- the bug guarded here.
     def _mock_client(self, credential_map: dict[tuple[str, str], bool]):
         """Build a mock client that responds to ledger_entry queries.
 
@@ -119,47 +123,47 @@ class TestTrustRegistryCheck:
             # If caller asked for a specific type, only return success if it matches
             if cred.credential_type is not None and cred.credential_type != held_type:
                 return MagicMock(result={})
-            return MagicMock(result={"node": "present"})
+            return MagicMock(result={"node": {"Flags": 0x00010000, "Issuer": "rIss", "Subject": "rSub", "CredentialType": "4B5943"}})
         client.request.side_effect = fake_request
         return client
 
     def test_check_satisfied_when_all_required_present(self):
         # "KYC" in hex = 4B5943, "EVAL_PASS" = 4556414C5F50415353
         client = self._mock_client({
-            ("rAgent", "rIssuer1"): "4B5943",
-            ("rAgent", "rIssuer2"): "4556414C5F50415353",
+            ("r6eQqpRNmwFubHw7fyiP9uL9YcZkVsQ8n", "rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf"): "4B5943",
+            ("r6eQqpRNmwFubHw7fyiP9uL9YcZkVsQ8n", "rEePd7C3J9AbtWcDqh36PD6TvZmrnFZwHc"): "4556414C5F50415353",
         })
         with patch("xrpl_agent_id.trust.get_client", return_value=client):
             reg = TrustRegistry(network="testnet")
-            reg.require(issuer="rIssuer1", credential_type=b"KYC")
-            reg.require(issuer="rIssuer2", credential_type=b"EVAL_PASS")
-            result = reg.check(agent_did="rAgent")
+            reg.require(issuer="rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf", credential_type=b"KYC")
+            reg.require(issuer="rEePd7C3J9AbtWcDqh36PD6TvZmrnFZwHc", credential_type=b"EVAL_PASS")
+            result = reg.check(agent_did="r6eQqpRNmwFubHw7fyiP9uL9YcZkVsQ8n")
         assert result.satisfied is True
         assert result.missing_required == []
         assert "✓" in result.summary()
 
     def test_check_unsatisfied_when_one_required_missing(self):
         client = self._mock_client({
-            ("rAgent", "rIssuer1"): "4B5943",  # KYC held
+            ("r6eQqpRNmwFubHw7fyiP9uL9YcZkVsQ8n", "rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf"): "4B5943",  # KYC held
             # rIssuer2: not in map → not held
         })
         with patch("xrpl_agent_id.trust.get_client", return_value=client):
             reg = TrustRegistry(network="testnet")
-            reg.require(issuer="rIssuer1", credential_type=b"KYC")
-            reg.require(issuer="rIssuer2", credential_type=b"EVAL_PASS")
-            result = reg.check(agent_did="rAgent")
+            reg.require(issuer="rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf", credential_type=b"KYC")
+            reg.require(issuer="rEePd7C3J9AbtWcDqh36PD6TvZmrnFZwHc", credential_type=b"EVAL_PASS")
+            result = reg.check(agent_did="r6eQqpRNmwFubHw7fyiP9uL9YcZkVsQ8n")
         assert result.satisfied is False
         assert len(result.missing_required) == 1
-        assert result.missing_required[0] == ("rIssuer2", b"EVAL_PASS")
+        assert result.missing_required[0] == ("rEePd7C3J9AbtWcDqh36PD6TvZmrnFZwHc", b"EVAL_PASS")
 
     def test_check_passes_did_xrpl_address(self):
         client = self._mock_client({
-            ("rAgent", "rIssuer1"): "4B5943",  # KYC
+            ("r6eQqpRNmwFubHw7fyiP9uL9YcZkVsQ8n", "rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf"): "4B5943",  # KYC
         })
         with patch("xrpl_agent_id.trust.get_client", return_value=client):
             reg = TrustRegistry(network="testnet")
-            reg.require(issuer="rIssuer1", credential_type=b"KYC")
-            result = reg.check(agent_did="did:xrpl:1:rAgent")
+            reg.require(issuer="rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf", credential_type=b"KYC")
+            result = reg.check(agent_did="did:xrpl:1:r6eQqpRNmwFubHw7fyiP9uL9YcZkVsQ8n")
         assert result.satisfied is True
 
 
@@ -173,8 +177,8 @@ class TestAuthorityVerifySet:
         def fake_request(req):
             cred = req.credential
             # Agent holds KYC from rIssuer1 only
-            if cred.subject == "rAgent" and cred.issuer == "rIssuer1" and cred.credential_type == "4B5943":
-                return MagicMock(result={"node": "present"})
+            if cred.subject == "r6eQqpRNmwFubHw7fyiP9uL9YcZkVsQ8n" and cred.issuer == "rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf" and cred.credential_type == "4B5943":
+                return MagicMock(result={"node": {"Flags": 0x00010000, "Issuer": "rIss", "Subject": "rSub", "CredentialType": "4B5943"}})
             return MagicMock(result={})
         client.request.side_effect = fake_request
 
@@ -183,26 +187,26 @@ class TestAuthorityVerifySet:
 
         with patch("xrpl_agent_id.network.get_client", return_value=client):
             result = authority.verify_set(
-                agent_did="rAgent",
+                agent_did="r6eQqpRNmwFubHw7fyiP9uL9YcZkVsQ8n",
                 required=[
-                    ("rIssuer1", b"KYC"),         # held
-                    ("rIssuer2", b"EVAL_PASS"),  # not held
+                    ("rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf", b"KYC"),         # held
+                    ("rEePd7C3J9AbtWcDqh36PD6TvZmrnFZwHc", b"EVAL_PASS"),  # not held
                 ],
             )
         assert isinstance(result, VerificationResult)
         assert result.all_satisfied is False
-        assert result.missing == [("rIssuer2", b"EVAL_PASS")]
+        assert result.missing == [("rEePd7C3J9AbtWcDqh36PD6TvZmrnFZwHc", b"EVAL_PASS")]
 
     def test_verify_set_did_form_input(self):
         client = MagicMock()
-        client.request.return_value = MagicMock(result={"node": "present"})
+        client.request.return_value = MagicMock(result={"node": {"Flags": 0x00010000, "Issuer": "rIss", "Subject": "rSub", "CredentialType": "4B5943"}})
         authority = Authority.__new__(Authority)
         authority.network = "testnet"
 
         with patch("xrpl_agent_id.network.get_client", return_value=client):
             result = authority.verify_set(
                 agent_did="did:xrpl:1:rAgentAddr",
-                required=[("rIssuer1", b"KYC")],
+                required=[("rGxvG8UGLLozZAQfg819HTjsfjmHaoVPSf", b"KYC")],
             )
         assert result.agent_did == "did:xrpl:1:rAgentAddr"
         call_args = client.request.call_args[0][0]

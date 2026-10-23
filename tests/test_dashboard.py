@@ -220,7 +220,10 @@ def test_files_api_lists_project() -> None:
     assert len(result["files"]) > 0
     # Every result has a positive size and an absolute path
     for f in result["files"]:
-        assert f["abs_path"].startswith("/")
+        # abs_path is deliberately not served: it only leaked the operator's
+        # home-directory layout. rel_path is what the dashboard renders.
+        assert "abs_path" not in f
+        assert f["rel_path"]
         assert f["rel_path"]
         assert f["size_bytes"] >= 0
         assert f["kind"] == "file"

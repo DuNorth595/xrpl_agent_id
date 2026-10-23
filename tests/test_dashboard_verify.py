@@ -164,7 +164,11 @@ def test_verify_memo_hex_match() -> None:
     try:
         payload, status = srv.api_verify(conn, memo_hex=memo_hex, tx_hash=None)
         assert status == 200, f"expected 200, got {status}: {payload}"
-        assert payload["verified"] is True
+        # A pasted memo carries no chain of custody: decision_id is an unsalted
+        # content hash, so a hand-crafted memo reproduces it. Only a memo fetched
+        # from a real transaction may be called "verified".
+        assert payload["local_record_matched"] is True
+        assert payload["on_chain_proof"] is None
         assert payload["lookup_via"] == "decision_id"
         assert payload["decision_id"] == did
         assert payload["memo"]["agent"] == "did:xrpl:2:rControllerBanned"
@@ -328,7 +332,10 @@ def test_verify_endpoint_over_http() -> None:
         r = c.getresponse()
         body = json.loads(r.read())
         assert r.status == 200, f"happy path: {r.status} {body}"
-        assert body["verified"] is True
+        # Same reasoning as the direct call: a pasted memo matches the local
+        # record but is not on-chain proven, so it must not claim "verified".
+        assert body["local_record_matched"] is True
+        assert body["verified"] is False
         assert body["decision"]["agent_did"] == "did:xrpl:2:rHttpAgent"
 
         # 2. Bad hex → 400

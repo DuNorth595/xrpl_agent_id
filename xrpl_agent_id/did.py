@@ -176,6 +176,10 @@ def _multibase_base58btc(multicodec_hex: str, raw_key_hex: str) -> str:
     return "z" + out.decode("ascii")
 
 
+# XRPL classic address: leading r + base58 payload.
+_CLASSIC_ADDRESS_RE = re.compile(r"r[1-9A-HJ-NP-Za-km-z]{24,34}")
+
+
 def did_from_account(address: str, network: str = "mainnet") -> str:
     """Build a did:xrpl DID from a classic address.
 
@@ -185,6 +189,12 @@ def did_from_account(address: str, network: str = "mainnet") -> str:
     net_id = NETWORK_IDS.get(network)
     if net_id is None:
         raise ValueError(f"Unknown network: {network}. Known: {list(NETWORK_IDS)}")
+    # Previously anything could be interpolated into a DID, e.g.
+    # did_from_account("../../etc/passwd"). Validate a real classic address.
+    if not isinstance(address, str) or not address:
+        raise ValueError("address must be a non-empty string")
+    if not _CLASSIC_ADDRESS_RE.fullmatch(address):
+        raise ValueError(f"not a valid XRP classic address: {address!r}")
     return f"did:xrpl:{net_id}:{address}"
 
 
@@ -252,6 +262,14 @@ def resolve_did(
         # DIDSet stores the DID Document as hex-encoded JSON (≤ 256 bytes).
         doc_bytes = bytes.fromhex(doc_hex)
         doc_json = _json.loads(doc_bytes.decode("utf-8"))
+        # Account A can publish a document whose `id` is account B's DID; any
+        # consumer keying on doc.id would attribute B's keys to A.
+        doc_id = doc_json.get("id")
+        if doc_id != did:
+            raise ValueError(
+                f"DID document identity mismatch: ledger entry {did} carries "
+                f"a document claiming to be {doc_id!r}"
+            )
         return DIDDocument.from_json(doc_json)
 
     # No DIDDocument on-ledger. Synthesize an implicit one with the account's

@@ -132,9 +132,24 @@ class BannedAgentRegistry:
     to call concurrently with each other but NOT while add/remove is in flight.
     """
 
-    def __init__(self, network: str = "testnet", path: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        network: str = "testnet",
+        path: str | Path | None = None,
+        strict: bool = False,
+    ) -> None:
+        """`strict=True` makes a missing/corrupt ban file an error instead of an
+        empty deny-list. Use it wherever a missing file would silently un-ban
+        everyone (see `load`)."""
         self.network = network
-        self.path = Path(path) if path else Path("banned_agents.json")
+        # Resolve the default against the user's home so a change of working
+        # directory cannot silently point the deny-list somewhere else.
+        self.path = (
+            Path(path).expanduser()
+            if path
+            else Path("~/.xrpl_agent_id").expanduser() / "banned_agents.json"
+        )
+        self.strict = strict
         self._bans: dict[str, Ban] = {}
         self._loaded = False
 
@@ -143,7 +158,20 @@ class BannedAgentRegistry:
     def load(self) -> None:
         """Read bans from disk. Idempotent."""
         if not self.path.exists():
+            # Previously this returned an empty deny-list in silence, so a typo,
+            # a moved file, or a different working directory meant every banned
+            # agent was suddenly allowed. Make it visible, and let callers opt
+            # into failing closed.
             self._loaded = True
+            msg = (
+                f"ban list not found at {self.path} -- treating as EMPTY "
+                f"(no agents banned). If this file is supposed to exist, "
+                f"check the path and working directory."
+            )
+            if self.strict:
+                raise FileNotFoundError(msg)
+            import warnings
+            warnings.warn(msg, RuntimeWarning, stacklevel=2)
             return
         with open(self.path, "r", encoding="utf-8") as f:
             data = json.load(f)

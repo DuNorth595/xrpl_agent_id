@@ -77,10 +77,20 @@ def test_submit_one_error_classification(monkeypatch):
     import scripts.stress_harness_throughput as sht
     monkeypatch.setattr(sht, "submit_and_wait", boom)
 
-    # Use a real valid-format seed so Wallet.from_seed doesn't fail before reaching our boom.
-    valid_seed = "sEdTvzEV1emGqQykRv4M8K4d1J6sNAm"
-    # Must differ from the wallet's own address (XRPL rejects self-payment).
-    valid_addr = "rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH"
+    # Generate an ephemeral seed at runtime instead of hardcoding one.
+    # The test only needs a seed that Wallet.from_seed() accepts, because
+    # submit_and_wait is monkeypatched to boom before anything is signed.
+    # Hardcoding one published a real, spendable-format seed to a public
+    # repo: it resolves to rEHuzex2HtTJrHKKuC7T4JTzvYHn5pCFLj, anyone could
+    # fund it, and secret scanners flag the literal. Generated per-run, there
+    # is nothing to steal and nothing to allowlist.
+    from xrpl.wallet import Wallet
+
+    _ephemeral = Wallet.create()
+    valid_seed = _ephemeral.seed
+    # Must differ from the wallet's own address (XRPL rejects self-payment),
+    # so use a second throwaway wallet as the destination.
+    valid_addr = Wallet.create().classic_address
 
     r = submit_one(valid_seed, valid_addr, 0, "nonce")
     assert r["ok"] is False

@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Iterable
 
-from xrpl.transaction import submit_and_wait
+from xrpl_agent_id.tx_submit import submit_with_retry
 from xrpl.wallet import Wallet
 
 from xrpl_agent_id.identity import AgentIdentity
@@ -98,8 +98,8 @@ class Authority(AgentIdentity):
             credential_type=credential_type.hex().upper(),
         )
         client = get_client(self.network)
-        response = submit_and_wait(tx, client, self.wallet)
-        return (response.result or {}).get("hash", "")
+        result = submit_with_retry(tx, client, self.wallet)
+        return (result or {}).get("hash", "")
 
     # ---- Bulk verification -------------------------------------------------
 

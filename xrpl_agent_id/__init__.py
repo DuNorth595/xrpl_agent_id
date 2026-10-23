@@ -36,17 +36,35 @@ from xrpl_agent_id.trust import (
 __version__ = "0.4.2"
 XRPL_AGENT_ID_VERSION = __version__  # canonical alias — referenced in docs/tests
 
-# When the package is installed (via `pip install -e .`), prefer the version
-# reported by importlib.metadata so this module cannot drift out of sync
-# with pyproject.toml. Fall back to the literal above when running from an
-# unpacked source tree that has no installed metadata.
+# The source literal above is authoritative. It is the version of the code
+# that is actually executing.
+#
+# An earlier version preferred importlib.metadata and overwrote __version__
+# with it, on the theory that metadata "cannot drift out of sync with
+# pyproject.toml". It does the opposite: with an editable install, the
+# installed metadata is stale the moment you bump the source and before you
+# reinstall, so __version__ silently reported the OLD version for the NEW
+# code. Verified: with the source at 0.4.3 and installed metadata still
+# 0.4.2, `xrpl_agent_id --version` printed 0.4.2 while running 0.4.3 --
+# a drift report that looks self-consistent, which is the worst direction
+# for it to be wrong in.
+#
+# So: report the source, and make drift LOUD instead of silent.
 try:
     from importlib.metadata import version as _pkg_version
 
     _installed_version = _pkg_version("xrpl_agent_id")
     if _installed_version and _installed_version != __version__:
-        __version__ = _installed_version
-        XRPL_AGENT_ID_VERSION = _installed_version
+        import warnings as _warnings
+
+        _warnings.warn(
+            f"xrpl_agent_id source version is {__version__!r} but installed "
+            f"package metadata says {_installed_version!r}. Reporting "
+            f"{__version__!r} because that is the code actually running. "
+            f"Reinstall to sync (pip install -e .).",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 except Exception:
     pass
 

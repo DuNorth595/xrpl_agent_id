@@ -20,10 +20,18 @@ import json as _json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from xrpl.transaction import submit_and_wait
+from xrpl_agent_id.tx_submit import submit_with_retry
 from xrpl.wallet import Wallet
 
 from xrpl_agent_id.did import DIDDocument, did_from_account
+
+
+class XRPLTransactionError(RuntimeError):
+    """A transaction reached the ledger but did not succeed (a tec* result).
+
+    submit_and_wait returns normally in that case, so callers that only catch
+    exceptions would otherwise treat a failed CredentialCreate as a success.
+    """
 
 if TYPE_CHECKING:
     from xrpl_agent_id.credential import Credential
@@ -104,11 +112,18 @@ class AgentIdentity:
 
         # Submit
         client = get_client(self.network)
-        response = submit_and_wait(tx, client, self.wallet)
-        result = response.result or {}
+        result = submit_with_retry(tx, client, self.wallet)
         tx_hash = result.get("hash")
         # tx_result like "tesSUCCESS"
         tx_result = (result.get("meta") or {}).get("TransactionResult")
+
+        # submit_and_wait returns normally for a tec* result that still reached
+        # the ledger, so returning the Credential here reported success for a
+        # transaction that failed. Surface it instead of swallowing it.
+        if tx_result and tx_result != "tesSUCCESS":
+            raise XRPLTransactionError(
+                f"CredentialCreate failed: tx_result={tx_result} (tx {tx_hash})"
+            )
 
         # The Credential object we return represents what we just created;
         # the subject has not yet accepted.
@@ -136,8 +151,8 @@ class AgentIdentity:
             credential_type=credential_type.hex().upper(),
         )
         client = get_client(self.network)
-        response = submit_and_wait(tx, client, self.wallet)
-        return (response.result or {}).get("hash", "")
+        result = submit_with_retry(tx, client, self.wallet)
+        return (result or {}).get("hash", "")
 
     # ---- DID operations ----------------------------------------------------
 
@@ -163,8 +178,8 @@ class AgentIdentity:
             did_document=doc_hex,
         )
         client = get_client(self.network)
-        response = submit_and_wait(tx, client, self.wallet)
-        return (response.result or {}).get("hash", "")
+        result = submit_with_retry(tx, client, self.wallet)
+        return (result or {}).get("hash", "")
 
     def set_did_uri(self, uri: str) -> str:
         """Write only the DID's URI field (DIDDocument stays implicit).
@@ -184,8 +199,8 @@ class AgentIdentity:
 
         tx = DIDSet(account=self.address, uri=uri_hex)
         client = get_client(self.network)
-        response = submit_and_wait(tx, client, self.wallet)
-        return (response.result or {}).get("hash", "")
+        result = submit_with_retry(tx, client, self.wallet)
+        return (result or {}).get("hash", "")
 
     # ---- Verification ------------------------------------------------------
 
@@ -216,7 +231,9 @@ class AgentIdentity:
         except Exception:
             return False
         node = (response.result or {}).get("node")
-        return node is not None
+        if node is None:
+            return False
+
 
     def resolve_did_document(self) -> DIDDocument:
         """Fetch this agent's DID Document from the ledger."""

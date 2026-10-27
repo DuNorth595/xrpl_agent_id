@@ -1,5 +1,9 @@
 # xrpl_agent_id
 
+Give **AI agents a verifiable on-chain identity** on the XRP Ledger: a W3C-compatible `did:xrpl` identifier, a DID Document, and XLS-70 Verifiable Credentials you can issue, accept and verify — with no extra infrastructure.
+
+*Keywords: AI agent identity, decentralized identity, DID, W3C DID, XLS-70, verifiable credentials, did:xrpl, XRPL identity, self-sovereign identity, digital identity, machine identity, trust, ERC-8004 style, XRP Ledger, Python.*
+
 <p align="center">
   <img src="docs/social-preview.jpg" alt="xrpl_agent_id — social preview" width="600">
 </p>

@@ -1,5 +1,9 @@
 # xrpl_agent_id
 
+<p align="center">
+  <img src="docs/social-preview.jpg" alt="xrpl_agent_id — social preview" width="600">
+</p>
+
 
 > **Repository layout:** this package uses a flat layout, while the companion
 > [`xrpl_agent_log`](https://github.com/DuNorth595/xrpl_agent_log) uses a `src/` layout.

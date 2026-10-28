@@ -55,10 +55,14 @@ from xrpl_agent_id.network import get_client
 from xrpl_agent_id.tx_submit import submit_with_retry
 
 #: Keychain service holding the mainnet treasury seed.
-# The macOS keychain service that holds the treasury seed. Overridable so
-# the value does not have to be published in a public repository -- the
-# service name is a pointer to a secret store.
-KEYCHAIN_SERVICE = os.environ.get("XRPL_STRESS_KEYCHAIN_SERVICE", "xrpl-mainnet-stress")
+# The macOS keychain service that holds the treasury seed.
+#
+# The service name points at a secret store, so it is not published in
+# this repository. Set XRPL_STRESS_KEYCHAIN_SERVICE to the service name
+# used by your local keychain entry.
+KEYCHAIN_SERVICE = os.environ.get(
+    "XRPL_STRESS_KEYCHAIN_SERVICE", "xrpl-mainnet-stress"
+)
 
 #: Base reserve per account, in drops (1 XRP). Read off the live ledger.
 RESERVE_BASE_DROPS = 1_000_000
@@ -92,7 +96,7 @@ AGENT_OWNED_OBJECTS = 2
 AGENT_TX_COUNT = 2
 
 
-def agent_funding_drops() -> int:
+def agent_funding_drops(owned_objects: int = AGENT_OWNED_OBJECTS) -> int:
     """Exactly what one agent account needs, in drops.
 
     1 XRP base reserve + 0.2 XRP per owned object it holds + fees for the
@@ -103,13 +107,18 @@ def agent_funding_drops() -> int:
     CredentialCreate is signed by the *issuer*, so the agent does not pay
     that fee.
 
+    An agent in the ``controller_banned`` role ALSO holds a SignerList --
+    the SignerListSet is submitted on the agent's own account, so the
+    owner reserve for that object is charged to the agent, not to the
+    co-signer. Pass owned_objects=3 for that role.
+
     Funding the flat 2 XRP instead would drain the treasury faster than
     necessary -- and on a tight budget that is the difference between
     fitting and not.
     """
     return (
         RESERVE_BASE_DROPS
-        + AGENT_OWNED_OBJECTS * RESERVE_INC_DROPS
+        + owned_objects * RESERVE_INC_DROPS
         + AGENT_TX_COUNT * FEE_MEDIAN_DROPS
     )
 
@@ -117,8 +126,9 @@ def agent_funding_drops() -> int:
 def plain_wallet_funding_drops() -> int:
     """Funding for an account that holds no owned objects.
 
-    The mirror wallet, the sink, the wrong-issuer, and the controller
-    co-signer all just need their base reserve plus fees.
+    The mirror wallet, the sink, and the controller co-signer just need
+    their base reserve plus fees. The wrong issuer does NOT belong here
+    -- it creates a credential, so it holds an owned object.
     """
     return RESERVE_BASE_DROPS + 4 * FEE_MEDIAN_DROPS
 
@@ -485,11 +495,16 @@ def main() -> int:
     specs = []
     for i in range(args.n):
         role = roles[i % len(roles)]
+        # An agent that publishes a SignerList owns a third object, so it
+        # needs a third owner reserve. The SignerListSet is submitted on
+        # the agent's own account, which is what makes the agent -- not
+        # the co-signer -- the account charged for it.
+        owned_objects = 3 if role == "controller_banned" else AGENT_OWNED_OBJECTS
         agent_seed, agent_addr = new_wallet_from_treasury(
             treasury_wallet,
             seeds,
             f"agent{i}_{role}",
-            agent_funding_drops(),
+            agent_funding_drops(owned_objects),
             args.save_seeds,
         )
         spec = {
@@ -526,11 +541,16 @@ def main() -> int:
                 banned_address=ctrl_addr,
             )
         elif role == "wrong_issuer":
+            # The wrong issuer CREATES a credential, so it holds one owned
+            # object -- the owner reserve is charged to the issuer, not
+            # the subject. Funding it as a plain wallet (base reserve
+            # only) fails with tecINSUFFICIENT_RESERVE, which is what
+            # happened on the n=6 run on 2026-10-28.
             wrong_seed, _ = new_wallet_from_treasury(
                 treasury_wallet,
                 seeds,
                 f"agent{i}_wrongissuer",
-                plain_wallet_funding_drops(),
+                issuer_funding_drops(1),
                 args.save_seeds,
             )
             _issue_and_accept_credential(wrong_seed, agent_seed)
@@ -709,11 +729,17 @@ def compute_budget(n: int) -> dict:
 
     # Owned objects, charged to the account that HOLDS them.
     agent_objs = 2 * n                             # 1 DID + 1 credential each
+    # A controller_banned agent ALSO owns a SignerList -- the SignerListSet
+    # is submitted on the agent's own account, so the agent is charged the
+    # owner reserve for it, not the co-signer.
+    signerlist_objs = sum(1 for r in roles_used if r == "controller_banned")
     issuer_objs = sum(
         1 for r in roles_used if r in ("valid", "controller_banned", "pending")
     )
     wrong_issuer_objs = 1 if "wrong_issuer" in need else 0
-    total_objs = agent_objs + issuer_objs + wrong_issuer_objs
+    total_objs = (
+        agent_objs + signerlist_objs + issuer_objs + wrong_issuer_objs
+    )
 
     # The TREASURY is itself an account and carries its own 1 XRP base
     # reserve, which is locked while it exists. The budget must include

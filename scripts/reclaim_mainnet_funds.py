@@ -35,10 +35,14 @@ from xrpl.models.transactions import AccountDelete, Payment
 from xrpl_agent_id.network import get_client
 from xrpl_agent_id.tx_submit import submit_with_retry
 
-# The macOS keychain service that holds the treasury seed. Overridable so
-# the value does not have to be published in a public repository -- the
-# service name is a pointer to a secret store.
-KEYCHAIN_SERVICE = os.environ.get("XRPL_STRESS_KEYCHAIN_SERVICE", "xrpl-mainnet-stress")
+# The macOS keychain service that holds the treasury seed.
+#
+# The service name points at a secret store, so it is not published in
+# this repository. Set XRPL_STRESS_KEYCHAIN_SERVICE to the service name
+# used by your local keychain entry.
+KEYCHAIN_SERVICE = os.environ.get(
+    "XRPL_STRESS_KEYCHAIN_SERVICE", "xrpl-mainnet-stress"
+)
 MAX_FEE_DROPS = 50_000
 
 #: Base reserve per account, in drops (1 XRP). Locked while the account

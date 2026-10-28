@@ -104,7 +104,7 @@ to do next.
 
 ```bash
 # not on PyPI yet -- install from GitHub
-pip install "xrpl-agent-id @ git+https://github.com/DuNorth595/xrpl_agent_id.git"
+pip install "xrpl-agent-id @ git+https://github.com/DuNorth595/xrpl_agent_id.git@v0.5.1"
 python examples/01_create_did.py
 ```
 

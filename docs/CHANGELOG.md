@@ -8,6 +8,46 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 _Nothing yet._
 
+## [0.5.2] - 2026-10-28
+
+Trust policy ergonomics. Four fixes to `TrustRegistry` and `TrustPolicy`,
+found by reviewing the API rather than by a failing test.
+
+### Fixed
+
+- **A require rule with a set of issuers is reported once.** It was
+  expanded into one `missing_required` entry per issuer, which read as
+  though the agent needed a credential from *every* issuer in the set.
+  A rule with three issuers is satisfied by a credential from any of
+  them, so the result now reports one entry per unsatisfied rule.
+- **An issuer-agnostic require rule can now pass.** The
+  `issuer=None` branch of the satisfaction check returned `False`
+  unconditionally, so `require(issuer=None, credential_type=...)` could
+  never be satisfied. It is now answered from the same authoritative
+  ledger read that `deny` rules use.
+- **`credential_type` accepts `str`.** Every caller writes a URI, and
+  `b"https://..."` was a papercut at every call site. Both forms are
+  accepted and stored as bytes. `TrustPolicy.credential_type_bytes` is
+  the normalized accessor.
+
+### Added
+
+- **`TrustRegistry.ban(subject, description=...)`** — a first-class ban
+  rule. A `deny` rule is about credentials; a ban is about the agent.
+  Ban rules are evaluated first, and the result reports `banned=True`
+  and `ban_reason`. A ban with no credential type matches on the
+  subject alone, regardless of what the agent holds.
+- `TrustCheckResult.banned` and `TrustCheckResult.ban_reason`.
+- `tests/test_trust_policy.py` — 18 tests covering all of the above.
+
+### Compatibility
+
+Additive. `require`, `deny`, and `check` keep their signatures. The
+`missing_required` grouping change alters the *contents* of that list
+for rules with multiple issuers: it now has one entry per rule rather
+than one per issuer. That is a more accurate report, but code that
+counted entries would see a different number.
+
 ## [0.5.1] - 2026-10-28
 
 Documentation and metadata accuracy. No change to the public API surface —

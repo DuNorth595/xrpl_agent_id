@@ -38,9 +38,10 @@ RUN_LIVE=1 /usr/bin/python3 -m pytest tests/test_integration_ledger_live.py -v
 | 2026-10-27 20:40 | 227 | 6 | 233 | Python 3.11 + xrpl-py 5.2.0 — v0.5.0 dependency floor raise. See below. |
 | 2026-10-27 21:30 | 252 | 6 | 258 | v0.5.0 `WalletProvider` — 25 new tests for the provider interface and provider-mode submission. |
 | 2026-10-28 06:15 | 341 | 6 | 347 | v0.5.0 release — fee ceiling, batch anchoring, Merkle proofs, and the read-only authorization-path invariant. |
+| 2026-10-28 16:00 | 379 | 6 | 385 | v0.5.2 — trust policy ergonomics: issuer-set grouping, issuer-agnostic require, str credential types, first-class ban rules. |
 | 2026-10-28 14:20 | 361 | 6 | 366 | v0.5.1 — documented-count guards, harness funding guards, and the mainnet validation record. |
 
-Latest: **361 offline + 6 live = 366 passing**, 0 failures.
+Latest: **379 offline + 6 live = 385 passing**, 0 failures.
 
 **v0.5.1 (2026-10-28).** The CI matrix is **Python 3.10, 3.11, 3.12, and
 3.13** with `xrpl-py 5.2.0`. The suite grew from 347 to 367 collected

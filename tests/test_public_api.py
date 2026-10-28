@@ -165,7 +165,21 @@ def test_documented_names_all_exist() -> None:
 
     documented = _documented_names()
     # Names that appear in the contract prose rather than as API names.
-    non_api = {"xrpl_agent_id", "merkle_root", "submit_with_retry", "AuditLog"}
+    non_api = {
+        "xrpl_agent_id",
+        "merkle_root",
+        "submit_with_retry",
+        "AuditLog",
+        # Methods on exported classes, and attributes on exported
+        # dataclasses -- documented in the contract, but not top-level
+        # exports of the package.
+        "require",
+        "deny",
+        "ban",
+        "check",
+        "credential_type",
+        "credential_type_bytes",
+    }
     claimed = documented - non_api
     missing = sorted(name for name in claimed if not hasattr(xrpl_agent_id, name))
     assert not missing, (

@@ -46,9 +46,29 @@ xrpl_agent_id.<NAME>  # all names below must be reachable this way
 
 | Name | Purpose |
 | --- | --- |
-| `TrustCheckResult` | Outcome of a trust check: satisfied / missing / denied. |
-| `TrustPolicy` | A set of `require` / `deny` rules. |
-| `TrustRegistry` | Evaluates an agent DID against a `TrustPolicy`. |
+| `TrustCheckResult` | Outcome of a trust check: satisfied / missing / denied / banned. |
+| `TrustPolicy` | A single `require` / `deny` / `ban` rule. |
+| `TrustRegistry` | Holds the rules and evaluates an agent DID against them. |
+
+`TrustRegistry` methods:
+
+| Method | What it does |
+|---|---|
+| `require(issuer, credential_type, description=...)` | The agent must hold a matching credential. A set of issuers is satisfied by **any** of them. |
+| `deny(issuer, credential_type, description=...)` | The agent must **not** hold a matching credential. |
+| `ban(subject, description=...)` | The agent is denied outright, whatever it holds. Evaluated first, and reported as `result.banned` with `result.ban_reason`. |
+| `check(agent_did)` | Evaluate every rule. Returns a `TrustCheckResult`. |
+
+`credential_type` accepts `bytes` or `str` and is stored as `bytes`
+(`TrustPolicy.credential_type_bytes` is the normalized form).
+
+`TrustCheckResult` fields: `agent_did`, `satisfied`, `missing_required`,
+`denied_held`, `all_credentials_found`, `banned`, `ban_reason`.
+
+`missing_required` reports one entry per unsatisfied **rule**, not one per
+issuer. A rule with three issuers is satisfied by a credential from any
+of them, so listing three entries would read as though all three were
+individually required.
 
 ## Wallet providers
 

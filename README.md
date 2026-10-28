@@ -412,6 +412,20 @@ against real mainnet ledger state on **2026-10-28** — `DIDSet`,
 `CredentialCreate`, `CredentialAccept`, `SignerListSet`, and the deletion
 paths, all on network ID `1`.
 
+A full run exercised **all six authorization roles** against real mainnet
+state, with every outcome verified independently against the public ledger:
+
+| Role | Expected | Result |
+|---|---|---|
+| `valid` | allow | ✅ `OK` |
+| `banned` | deny | ✅ `AGENT_BANNED` |
+| `controller_banned` | deny | ✅ `CONTROLLER_BANNED` |
+| `no_creds` | deny | ✅ `NO_CREDENTIALS` |
+| `wrong_issuer` | deny | ✅ `CREDENTIAL_MISSING` |
+| `pending` | deny | ✅ `CREDENTIAL_REVOKED` |
+
+Six of six correct.
+
 | Surface | Mainnet OK? | Why |
 |---|---|---|
 | DID creation (`DIDSet`) | Yes | 10 drops base, reversible via `DIDDelete`, no expiry |
@@ -638,7 +652,7 @@ standards (XLS-40d, XLS-70) — public-domain spec text.
 
 ## Related projects
 
-- [`xrpl_agent_log`](https://github.com/DuNorth595/xrpl_agent_log) — companion library: tamper-evident agent history on XRPL
+- [`xrpl_agent_log`](https://github.com/DuNorth595/xrpl_agent_log) — companion library: tamper-evident agent history. `SigningPair.from_identities()` takes two `AgentIdentity` objects and reads their DIDs directly, so an identity here and a log entry there need no glue code on XRPL
 - [`xrpl-py`](https://github.com/XRPLF/xrpl-py) — the Python client this wraps
 - [`agent-intent/verifiable-intent`](https://github.com/agent-intent/verifiable-intent) — chain-agnostic agent authorization spec
 - [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) — the EVM agent identity standard

@@ -410,6 +410,25 @@ only. Network ID `1`, XRPL mainnet.
 funded account was subsequently deleted, and the treasury's `OwnerCount`
 ended at **0**.
 
+**The full n=6 run (2026-10-28, complete).** A later run exercised **all
+six authorization roles** against real mainnet state, with every outcome
+verified independently against the public ledger rather than read from the
+harness's own report:
+
+| Role | Expected | Result |
+|---|---|---|
+| `valid` | allow | ✅ `OK` |
+| `banned` | deny | ✅ `AGENT_BANNED` |
+| `controller_banned` | deny | ✅ `CONTROLLER_BANNED` |
+| `no_creds` | deny | ✅ `NO_CREDENTIALS` |
+| `wrong_issuer` | deny | ✅ `CREDENTIAL_MISSING` |
+| `pending` | deny | ✅ `CREDENTIAL_REVOKED` |
+
+Six of six correct. The treasury's transaction history after the run shows
+**27 `Payment` and 13 `AccountDelete`** across 19 funded accounts. Spend for
+the run was **12.51 XRP** — the reserve lockup, released on deletion, plus
+transaction fees.
+
 **What it validated.**
 
 | Claim | Result |
@@ -442,6 +461,23 @@ inspection, and each is documented so a future run does not repeat it:
    drops where the budget assumed the 5,000-drop median. The fee line now
    carries a 1.5× multiplier; the reserve figures are exact protocol
    constants and are not inflated.
+
+A later n=6 run surfaced two more of the same class — an account funded for
+fewer owned objects than it would actually hold:
+
+4. **The wrong issuer was funded as a plain wallet.** It creates a
+   credential, and the owner reserve for a credential is charged to the
+   account that *creates* it, not the one that accepts it. The run failed at
+   `tecINSUFFICIENT_RESERVE`. It is now funded as an issuer.
+5. **The `controller_banned` agent was funded for two owned objects.** It
+   publishes a `SignerListSet` on its own account, so the agent — not the
+   banned co-signer — holds that object and needs a third owner reserve.
+   `agent_funding_drops()` now takes the object count as an argument.
+
+`tests/test_harness_funding.py` pins all five: every account is funded for
+the objects it will actually hold, and the computed budget counts them. Each
+check was verified by mutation — reintroducing the wrong-issuer bug fails the
+suite.
 
 The budget function was then validated against the ledger's own record of
 what the run required — computed 9.127 XRP against 9.104 XRP actually

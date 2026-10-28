@@ -38,15 +38,35 @@ RUN_LIVE=1 /usr/bin/python3 -m pytest tests/test_integration_ledger_live.py -v
 | 2026-10-27 20:40 | 227 | 6 | 233 | Python 3.11 + xrpl-py 5.2.0 — v0.5.0 dependency floor raise. See below. |
 | 2026-10-27 21:30 | 252 | 6 | 258 | v0.5.0 `WalletProvider` — 25 new tests for the provider interface and provider-mode submission. |
 | 2026-10-28 06:15 | 341 | 6 | 347 | v0.5.0 release — fee ceiling, batch anchoring, Merkle proofs, and the read-only authorization-path invariant. |
+| 2026-10-28 14:20 | 361 | 6 | 366 | v0.5.1 — documented-count guards, harness funding guards, and the mainnet validation record. |
 
-Latest: **341 offline + 6 live = 347 passing**, 0 failures.
+Latest: **361 offline + 6 live = 366 passing**, 0 failures.
 
-**v0.5.0 release (2026-10-28).** Verified on **Python 3.11 and 3.14**
-with `xrpl-py 5.2.0` — the CI matrix. The suite grew from 258 to 347
-collected tests: the fee-ceiling and price-sensitivity tests, the Merkle
-proof tests, the batch-anchoring tests, and
-`tests/test_read_only_authorization.py`, which pins the invariant that the
-authorization and trust paths never submit a transaction.
+**v0.5.1 (2026-10-28).** The CI matrix is **Python 3.10, 3.11, 3.12, and
+3.13** with `xrpl-py 5.2.0`. The suite grew from 347 to 367 collected
+tests: the documented-count guard (every documented number is derived from
+the repository and asserted against it), the harness-funding guard (every
+account the mainnet harness creates is funded for the ledger objects it will
+actually hold), and the identity-pairing tests in the companion
+`xrpl_agent_log` package.
+
+**Mainnet validation (2026-10-28).** The credential lifecycle was
+exercised against XRPL **mainnet** — network ID `1` — not testnet. A full
+n=6 run covered all six authorization roles and every outcome was verified
+independently against the public ledger:
+
+| Role | Expected | Result |
+|---|---|---|
+| `valid` | allow | `OK` |
+| `banned` | deny | `AGENT_BANNED` |
+| `controller_banned` | deny | `CONTROLLER_BANNED` |
+| `no_creds` | deny | `NO_CREDENTIALS` |
+| `wrong_issuer` | deny | `CREDENTIAL_MISSING` |
+| `pending` | deny | `CREDENTIAL_REVOKED` |
+
+Six of six correct. Spend for that run was **12.51 XRP**, almost all of it
+reserve lockup that was released when the accounts were deleted. See
+[`MAINNET_DECISION.md`](MAINNET_DECISION.md) §5.1.
 
 The 6 live tests remain opt-in via `RUN_LIVE=1`.
 

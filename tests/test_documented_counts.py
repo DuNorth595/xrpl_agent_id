@@ -148,6 +148,7 @@ def test_documented_test_counts_are_current() -> None:
         "README.md": r"(\d+) passed, (\d+) skipped",
         "CONTRIBUTING.md": r"(\d+) offline tests",
         "docs/00_executive_summary.md": r"\*\*(\d+) tests passing",
+        "docs/02_testing_log.md": r"Latest: \*\*(\d+) offline",
     }
     for rel, pattern in docs.items():
         text = _read(rel)
@@ -199,4 +200,35 @@ def test_readme_reports_the_current_version() -> None:
     )
     assert f"v{version}" in _read("README.md"), (
         f"README.md does not mention v{version}"
+    )
+
+
+def test_testing_log_states_the_real_ci_matrix() -> None:
+    """The testing log must name the Python versions CI actually runs.
+
+    It previously claimed "Python 3.11 and 3.14" while the workflow
+    tested 3.10-3.13 -- two versions CI does not run, and two it omits.
+    """
+    import re as _re
+
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
+        encoding="utf-8"
+    )
+    matrix = _re.search(r'python-version:\s*\[([^\]]+)\]', workflow)
+    assert matrix, "ci.yml does not declare a python-version matrix"
+    versions = _re.findall(r'"([\d.]+)"', matrix.group(1))
+    assert versions, "the CI matrix is empty"
+
+    log = _read("docs/02_testing_log.md")
+    assert "CI matrix is **Python" in log, (
+        "the testing log no longer states the CI matrix"
+    )
+    # The sentence wraps across lines, so read the surrounding paragraph
+    # rather than a single line.
+    idx = log.find("CI matrix is **Python")
+    assert idx > 0, "could not find the CI matrix claim in the testing log"
+    paragraph = log[idx:idx + 220]
+    named = _re.findall(r"\d+\.\d+", paragraph.split("**")[1])
+    assert set(named) == set(versions), (
+        f"the testing log names Python {named} but CI runs {versions}"
     )

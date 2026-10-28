@@ -406,7 +406,7 @@ Run against a disposable treasury funded by the operator for this purpose
 only. Network ID `1`, XRPL mainnet.
 
 **Ledger evidence.** The treasury's public transaction history shows
-**56 validated transactions — 39 `Payment` and 17 `AccountDelete`** —
+**65 validated transactions — 39 `Payment` and 26 `AccountDelete`** —
 covering every run and the cleanup of each one. Every funded account was
 subsequently deleted, and the treasury's `OwnerCount` ended at **0**.
 

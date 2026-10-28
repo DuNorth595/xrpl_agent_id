@@ -338,8 +338,8 @@ accepting, and trust checks are unchanged.
 
 ## Document status
 
-- **Version:** 0.5.0
+- **Version:** 0.5.1
 - **Author:** S_DevLabs
 - **Last updated:** 2026-10-27
-- **Tested against:** `xrpl_agent_id` 0.5.0 on XRPL testnet
+- **Tested against:** `xrpl_agent_id` 0.5.1 on XRPL testnet
 - **Audience:** First-time users of `xrpl_agent_id`. Assumes basic XRPL knowledge (accounts, seeds, transactions) but no prior exposure to this library.

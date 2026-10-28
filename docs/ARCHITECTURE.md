@@ -1,9 +1,9 @@
-# xrpl_agent_id — End-to-end architecture (v0.5.0)
+# xrpl_agent_id — End-to-end architecture (v0.5.1)
 
 This document is the single source of truth for how the project fits
 together as of the v0.5.0 release. It covers the library, the dashboard,
 the stress harness, the audit-mirror path, the build pipeline, and the
-test pyramid. Code references are pinned to v0.5.0.
+test pyramid. Code references are pinned to v0.5.1.
 
 > **Changed in v0.5.0.** `xrpl_agent_id/wallet.py` (the `WalletProvider`
 > protocol and `SeedWalletProvider` / `ExternalSignerProvider`),
@@ -703,7 +703,7 @@ bumps.
 
 ```bash
 python3 -m pytest -x -q
-# 345 passed, 6 skipped
+# 353 passed, 6 skipped
 ```
 
 The 6 skipped are the live-XRPL integration tests, gated behind `RUN_LIVE=1`.
@@ -748,7 +748,7 @@ xrpl_agent_id/
 │       ├── server.py
 │       ├── templates/index.html
 │       └── dashboard.js
-├── tests/                        # 345 offline tests
+├── tests/                        # 353 offline tests
 │   ├── test_did.py               # 12 tests
 │   ├── test_credential.py        # 15 tests
 │   ├── test_authorization.py     # ~20 tests

@@ -92,56 +92,38 @@ def test_contributing_test_module_count_is_current() -> None:
 
 
 def _suite_counts() -> tuple[int, int]:
-    """Return (passed, skipped) for the suite, excluding this file.
+    """Return (passed, skipped) for the whole suite, including this file.
 
-    Pytest's own collector is the only source of truth for how many
-    tests exist -- parsing the source would miscount parametrized and
-    class-based tests. But this module cannot ask pytest to collect
-    itself, because this test runs *inside* that collection: pytest
-    would collect this file, run this test, which would collect pytest
-    again.
+    The count comes from pytest's *collection*, not from running the
+    suite. Collection lists the tests without executing them, so there
+    is no recursion -- collecting this file does not run this test.
 
-    So the collector is asked to collect every test module except this
-    one, and the count for this file is added separately. The result is
-    the same number pytest would report for a full run, without the
-    recursion.
+    The skip count comes from a second, separate run that excludes this
+    file (so it cannot recurse) and reports how many tests the
+    RUN_LIVE-gated marker skips.
     """
     import os
     import subprocess
     import sys
 
-    # This guard file is excluded from the count it checks. Otherwise
-    # every test added here changes the number the documents quote,
-    # and the guard would need updating the moment it was extended.
-    modules = [
-        str(p) for p in sorted(TESTS.glob("test_*.py"))
-        if p.name != Path(__file__).name
-    ]
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", *modules, "--collect-only", "-q",
+    collect = subprocess.run(
+        [sys.executable, "-m", "pytest", str(TESTS), "--collect-only", "-q",
          "-p", "no:cacheprovider"],
         cwd=ROOT,
         capture_output=True,
         text=True,
     )
-    output = result.stdout + result.stderr
+    output = collect.stdout + collect.stderr
     total = re.search(r"(\d+) tests? collected", output)
     assert total, f"could not collect the suite: {output[-500:]}"
     collected = int(total.group(1))
 
-    # This file's other tests ARE part of the suite and count toward the
-    # documented figure. Only the test currently executing is excluded,
-    # because pytest is running it rather than collecting it. The count
-    # of the file's test functions is therefore minus one.
-    own = len([
-        m for m in re.findall(
-            r"^def (test_\w+)", Path(__file__).read_text(encoding="utf-8"), re.M
-        )
-    ]) - 1
-
-    # The live-testnet tests are skipped unless RUN_LIVE is set. Ask
-    # pytest how many it would skip rather than guessing at the marker
-    # syntax -- the markers are spelled in more than one way.
+    # Count the skipped ones with a run that excludes this file, so the
+    # inner run never reaches this test.
+    modules = [
+        str(p) for p in sorted(TESTS.glob("test_*.py"))
+        if p.name != Path(__file__).name
+    ]
     run = subprocess.run(
         [sys.executable, "-m", "pytest", *modules, "-q", "--no-header",
          "-p", "no:cacheprovider"],
@@ -153,10 +135,9 @@ def _suite_counts() -> tuple[int, int]:
     output = run.stdout + run.stderr
     result = re.search(r"(\d+) passed.*?(\d+) skipped", output)
     assert result, f"could not read the suite result: {output[-500:]}"
-    passed = int(result.group(1))
     skipped = int(result.group(2))
 
-    return passed + own, skipped
+    return collected - skipped, skipped
 
 
 def test_documented_test_counts_are_current() -> None:

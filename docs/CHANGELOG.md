@@ -6,6 +6,63 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.5.1] - 2026-10-28
+
+Documentation and metadata accuracy. No change to the public API surface —
+all 24 exported names are unchanged.
+
+### Fixed
+- **The documented examples did not run.** The README's "Authorization policy
+  and audit" example and the QUICKSTART ban example used literal placeholder
+  addresses (`"rAgent..."`, `"rIssuer..."`, `"rBadAgent..."`). Copying either
+  and running it raised `ValueError: not a valid XRP classic address`. The
+  examples had been checked for API existence but never executed end to end.
+  They now use valid, unfunded, clearly-synthetic addresses.
+- **The public-API contract listed symbols that do not exist.**
+  `xrpl_agent_id/PUBLIC_API.md` described `Publisher`, `AcceptancePolicy`,
+  `LedgerAuditLog`, `Journal`, `AgentRecord`, and `Registry` as internal-only.
+  None of them exist in the package. It also omitted ten that do — the
+  submodule exports — so a reader following the contract found nothing.
+  Rewritten as two accurate tables: what is importable but unpinned, and what
+  does not exist.
+- **`SECURITY.md` described shipped features as future plans.** Its "Known
+  limitations" said v0.5.0 *would introduce* `WalletProvider` and *would sign*
+  `decision_id`. Both shipped in v0.5.0. The limitations now describe the
+  actual current state, including that `ExternalSignerProvider` is only as
+  trustworthy as the signing callable behind it.
+- **The mainnet gate was still recorded as closed.** `docs/MAINNET_DECISION.md`
+  read "NO-GO for mainnet" and listed the stress run as pending. The run
+  executed on 2026-10-28 — 23 validated transactions, every funded account
+  deleted, treasury `OwnerCount` 0 — and the document now records it.
+- **Documented counts had drifted.** `SECURITY.md` listed `0.4.x` as the
+  latest supported version, the README claimed a 19-name public surface
+  against an actual 24, and three documents still quoted 341 tests.
+- **The dashboard pointed at a path that exists on one machine.** Its server,
+  monitor, and backfill scripts defaulted their SQLite path to an absolute
+  local directory. They now default to `~/.xrpl_agent_id/dashboard.db`.
+
+### Added
+- **`tests/test_public_api.py` now pins the document, not just the code.**
+  The existing test checked the exports against a hand-maintained list but
+  never checked `PUBLIC_API.md`, which is how six invented names got in.
+- **`tests/test_documented_counts.py`** — eight tests that derive every
+  documented number from the repository and assert the documents agree: the
+  public-surface size against `__all__`, module and test-module counts
+  against the filesystem, test counts against the suite itself, and the
+  supported-versions table against `pyproject.toml`.
+- **`xrpl_agent_id/py.typed`** — the package is fully annotated but shipped no
+  PEP 561 marker, so mypy and pyright ignored it.
+- **README `Usage` section** covering the five real workflows, with all
+  seventeen API calls verified against their real signatures.
+
+### Changed
+- The README now follows the convention established by `XRPLF/xrpl-py`:
+  "Installation and supported versions" near the top, a Usage section, and
+  Contributing and License sections. `docs/README.md` became a reader-path
+  index.
+
 ## [0.5.0] - 2026-10-28
 
 Mainnet readiness. `WalletProvider` and the `submit_with_retry` rewrite

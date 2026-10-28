@@ -88,7 +88,11 @@ def test_api_version_shape(running_server):
     ):
         assert key in body, f"/api/version missing required field {key!r}: got {body}"
     assert body["package"] == "xrpl_agent_id"
-    assert body["package_version"] == "0.5.0"
+    # Compare against the package's own version rather than a literal, so
+    # a version bump does not require editing this test.
+    import xrpl_agent_id
+
+    assert body["package_version"] == xrpl_agent_id.__version__
     assert body["ok"] is True
     assert isinstance(body["now"], int)
     assert body["now"] > 0

@@ -132,25 +132,22 @@ def _submit_with_retry(wallet, tx, *, max_attempts: int = 3) -> str:
 
     Returns the tx hash string. Raises on non-transient failure or after
     max_attempts is exhausted.
-    """
-    from xrpl.transaction import submit_and_wait
-    from xrpl_agent_id.network import get_client
 
-    last_exc: Exception | None = None
-    for attempt in range(1, max_attempts + 1):
-        try:
-            client = get_client("testnet")
-            response = submit_and_wait(tx, client, wallet)
-            return (response.result or {}).get("hash", "") or ""
-        except Exception as e:  # xrpl raises XRPLReliableSubmissionException
-            last_exc = e
-            msg = str(e)
-            if "tefPAST_SEQ" in msg or "tefMAX_LEDGER" in msg or "LastLedgerSequence" in msg:
-                import time as _t
-                _t.sleep(2 + attempt)
-                continue
-            raise
-    raise last_exc  # type: ignore[misc]
+    Uses the library's own ``submit_with_retry`` rather than xrpl-py's
+    ``submit_and_wait``. The mirror now holds a ``WalletProvider`` (v0.5.0
+    renamed ``XRPLMirror.wallet`` to ``.provider``), and
+    ``submit_and_wait`` only accepts an ``xrpl.wallet.Wallet``. The
+    library's helper handles both and re-autofills and re-signs per
+    attempt, which is what makes a retry safe for a provider.
+    """
+    from xrpl_agent_id.network import get_client
+    from xrpl_agent_id.tx_submit import submit_with_retry
+
+    client = get_client("testnet")
+    result = submit_with_retry(tx, client, wallet, max_attempts=max_attempts)
+    if result is None:
+        raise RuntimeError("submit_with_retry returned no result payload")
+    return result.get("hash", "") or ""
 
 
 def _build_mirror_tx(wallet_address: str, destination: str, decision):
@@ -450,7 +447,7 @@ def run_live(
         sink_seed, sink_addr = _wallet_from_faucet()
         mirror_destination = sink_addr
         xrpl_mirror = XRPLMirror.from_seed(mirror_seed, network=mirror_network, destination=mirror_destination)
-        mirror_addr = xrpl_mirror.wallet.address
+        mirror_addr = xrpl_mirror.provider.classic_address
         print(f"  mirror wallet: {mirror_addr} (network={mirror_network})")
         print(f"  mirror sink  : {mirror_destination} (faucet-funded, 0-XRP destination)")
         if collect_seeds is not None:
@@ -487,8 +484,12 @@ def run_live(
             # Always mirror in this path (mirror_deny_only==False branch)
             try:
                 recorded_tx = _submit_with_retry(
-                    xrpl_mirror.wallet,
-                    _build_mirror_tx(xrpl_mirror.wallet.address, mirror_destination, decision),
+                    xrpl_mirror.provider,
+                    _build_mirror_tx(
+                        xrpl_mirror.provider.classic_address,
+                        mirror_destination,
+                        decision,
+                    ),
                 )
             except Exception as e:
                 recorded_tx = None
@@ -496,8 +497,12 @@ def run_live(
         elif xrpl_mirror is not None and mirror_deny_only and not decision.allow:
             try:
                 recorded_tx = _submit_with_retry(
-                    xrpl_mirror.wallet,
-                    _build_mirror_tx(xrpl_mirror.wallet.address, mirror_destination, decision),
+                    xrpl_mirror.provider,
+                    _build_mirror_tx(
+                        xrpl_mirror.provider.classic_address,
+                        mirror_destination,
+                        decision,
+                    ),
                 )
             except Exception as e:
                 recorded_tx = None

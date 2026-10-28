@@ -287,6 +287,53 @@ share one account:
 lever, and it is invisible in the library's API because `AgentIdentity`
 maps 1:1 to a wallet.
 
+## 3.9 Releasing the lockup — the account lifecycle
+
+Reserve is released in three steps, in this order. Each has a cost, and
+the order matters.
+
+| Step | Transaction | Releases | Costs |
+|---|---|---|---|
+| 1 | `CredentialDelete` | the credential's 0.2 XRP owner reserve | ordinary fee (~10 drops) |
+| 2 | `DIDDelete` | the DID's 0.2 XRP owner reserve | ordinary fee (~10 drops) |
+| 3 | `AccountDelete` | the account's **1 XRP base reserve** | **0.2 XRP** (one owner reserve) |
+
+**Step 3 is not optional if you want the base reserve back.** An account's
+*transferable* balance is `Balance - BaseReserve` — the base reserve is
+locked for the life of the account. A plain `Payment` can only move what
+sits above it. On a 1.02 XRP account, a Payment recovers 0.02 XRP;
+`AccountDelete` recovers 0.82 XRP.
+
+**The `AccountDelete` cost is 0.2 XRP, not 0.00001.** It is a special
+transaction cost equal to one owner reserve, deliberately 20,000× the
+ordinary base fee, to discourage account create/delete spam. It is burned.
+
+**Two requirements, both easy to trip over:**
+
+1. **Age.** `Sequence + 255 <= current_ledger_index`. An account must be at
+   least ~256 ledgers old — about 15 minutes. This is an anti-spam
+   measure. A run that creates accounts and immediately tries to reclaim
+   them will fail.
+2. **No deletion blockers.** The account must own no objects. Delete the
+   credentials and DIDs first, and remove any `SignerList` with a
+   `SignerListSet` carrying a weight-0 entry for the master key.
+
+**The account is gone for good.** `AccountDelete` is irreversible, and the
+address cannot be reused.
+
+**Why this matters for a deployment.** A fleet of N agent accounts costs
+`N x 1 XRP` locked, and tearing it down costs `N x 0.2 XRP` in deletion
+fees. For 100 accounts that is 100 XRP locked and 20 XRP burned to
+release it. If the fleet is short-lived, that is 20% of the lockup gone.
+For long-lived identities, the lockup is recovered once and the accounts
+persist.
+
+**Sizing a treasury.** A treasury that funds N accounts and recovers them
+needs `N x (1 XRP + objects) + N x 0.2 XRP` in deletion fees on top of
+the lockup it wants back. The treasury's own 1 XRP base reserve is locked
+too, and it is not counted in the per-account figures above — a treasury
+funding 6 accounts needs 7 XRP of base reserve, not 6.
+
 ## 4. Lockup at scale
 
 **Lockup does not scale with transaction volume. Fees do.** They are

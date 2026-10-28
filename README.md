@@ -37,6 +37,31 @@ see [Mainnet readiness](#mainnet-readiness).
 
 ---
 
+## Installation and supported versions
+
+Not published to PyPI. Install from source:
+
+```bash
+git clone https://github.com/DuNorth595/xrpl_agent_id
+cd xrpl_agent_id
+pip install -e ".[dev]"
+```
+
+Requires **Python 3.10+**. The `xrpl-py` dependency is pinned to
+`>=5.0,<6` — the upper bound is deliberate, so the package cannot resolve
+against two major versions of its only dependency.
+
+| | Supported |
+|---|---|
+| Python | 3.10, 3.11, 3.12, 3.13 (CI matrix) |
+| `xrpl-py` | 5.0 – 5.x |
+| Networks | XRPL mainnet, testnet, and devnet |
+
+The package ships type annotations and a PEP 561 `py.typed` marker, so
+mypy and pyright use them.
+
+---
+
 ## Quick start
 
 ```python
@@ -67,6 +92,164 @@ assert agent.has_credential(
     credential_type=b"agent-eval-passed-v1",
 )
 ```
+
+---
+
+## Usage
+
+Three things you do with this library. All three are two ledger
+transactions or fewer, and all three are verifiable by anyone with a
+public `ledger_entry` call.
+
+### 1. Issue a credential
+
+An issuer attests something about an agent. The credential is an
+on-ledger XLS-70 object.
+
+```python
+from xrpl_agent_id import Authority, AgentIdentity
+
+issuer = Authority.from_seed(issuer_seed, network="mainnet")
+agent = AgentIdentity.from_seed(agent_seed, network="mainnet")
+
+issuer.issue_credential(
+    subject=agent.address,                      # the agent's r-address
+    credential_type=b"agent-eval-passed-v1",
+    uri="ipfs://Qm...",                         # full claim details, off-chain
+)
+```
+
+`issue_credential()` submits a `CredentialCreate` and returns the
+`Credential` object. The issuer holds the credential's 0.2 XRP owner
+reserve until the subject accepts it.
+
+**The cheapest path.** `issue_credential_cheapest()` skips the optional
+DID object — XLS-70 makes a DID *recommended*, not required — for one
+transaction instead of two, and 1.2 XRP of lockup instead of 1.4. Use it
+unless you specifically need a `DIDSet`.
+
+```python
+issued = issuer.issue_credential_cheapest(
+    subject=agent.address,
+    credential_type=b"agent-eval-passed-v1",
+)
+```
+
+### 2. Accept and verify
+
+The subject accepts on its own account — its own signature, its own
+consent — and then anyone can verify against the public ledger.
+
+```python
+agent.accept_credential(
+    issuer=issuer.address,
+    credential_type=b"agent-eval-passed-v1",
+)
+
+# Verify from the subject's side
+assert agent.has_credential(
+    issuer=issuer.address,
+    credential_type=b"agent-eval-passed-v1",
+)
+
+# Or verify from anyone else's side — no keys, no registry, no API key
+from xrpl_agent_id import resolve_did
+doc = resolve_did(agent.did, network="mainnet")
+```
+
+`has_credential()` reads the ledger and checks the `lsfAccepted` flag. An
+unaccepted credential does not count as held — XLS-70 says a credential
+"should not be considered valid until it has been accepted," and the
+library enforces that rather than assuming it.
+
+### 3. Check whether an agent is allowed to do something
+
+An identity says *who*. The authorization layer says *what it may do*.
+
+```python
+from xrpl_agent_id.authorization import AuthorizationPolicy, RequestContext
+from xrpl_agent_id.banned import Ban, BannedAgentRegistry
+
+bans = BannedAgentRegistry(network="mainnet")
+bans.add(Ban(address="rBadAgent...", reason="abuse report #4421", added_by="ops"))
+
+policy = AuthorizationPolicy(network="mainnet", bans=bans)
+policy.require_credential(
+    issuer=issuer.address,
+    credential_type=b"agent-eval-passed-v1",
+)
+
+decision = policy.evaluate(agent.address, context=RequestContext(resource="/api/transfer"))
+if not decision.allow:
+    for reason in decision.reasons:
+        print(reason.code.name, reason.detail)
+```
+
+**This is a read.** `evaluate()` resolves the agent's ledger state and
+evaluates it against the policy — it submits no transaction and costs
+nothing. The 8 reason codes are `OK`, `AGENT_BANNED`, `CONTROLLER_BANNED`,
+`NO_CREDENTIALS`, `CREDENTIAL_MISSING`, `CREDENTIAL_REVOKED`,
+`CREDENTIAL_TYPE_DENIED`, and `CREDENTIAL_EXPIRED`.
+
+### 4. Sign without holding the key
+
+`WalletProvider` is the interface for a KMS, HSM, or hardware wallet that
+never reveals the private key.
+
+```python
+from xrpl_agent_id import AgentIdentity, ExternalSignerProvider
+
+def sign_with_kms(message_hex: str) -> str:
+    """Sign the XRPL signing bytes with a KMS, HSM, or hardware wallet.
+
+    A KMS signs a DIGEST rather than a pre-hashed message, so hash the
+    bytes the way your vendor's client expects. AWS KMS does not support
+    Ed25519 -- use a secp256k1 key there and expect an `EC` public-key
+    prefix rather than `ED`.
+    """
+    digest = hashlib.sha256(bytes.fromhex(message_hex)).digest()
+    return kms_client.sign(
+        KeyId=key_id, Message=digest, MessageType="DIGEST",
+    )["Signature"].hex()
+
+provider = ExternalSignerProvider(
+    classic_address="rYourAccountAddress",   # the KMS-backed account
+    public_key="EC...",                      # compressed XRPL public key
+    signer=sign_with_kms,
+)
+
+agent = AgentIdentity(provider=provider, network="mainnet")
+print(agent.did)   # did:xrpl:1:rYourAccountAddress
+```
+
+The provider signs the transaction; the library handles the rest. Because
+a provider signs *before* submission, the library re-autofills and
+re-signs on every retry — the stock `submit_and_wait` retry is not safe
+for a pre-signed transaction.
+
+`WalletProvider` is structural: three members — `classic_address`,
+`public_key`, `sign(tx)` — and any object with them satisfies it, so the
+same shape can be implemented in another language or behind any signer.
+
+### 5. Optionally mirror decisions on-chain
+
+```python
+from xrpl_agent_id.audit import AuditLog, XRPLMirror
+
+audit = AuditLog(
+    db_path="audit.db",
+    xrpl_mirror=XRPLMirror.from_seed(mirror_seed, network="mainnet"),
+    mirror_on_deny_only=True,          # default
+)
+audit.record(decision)
+```
+
+Every decision goes to SQLite. The on-chain mirror is **optional and off
+by default** — with `xrpl_mirror=None` nothing touches the ledger. When
+you do enable it, `mirror_on_deny_only=True` means only denials are
+anchored, the mirror runs on **its own key** (so its cost is yours, not
+the counterparty's), and `anchor_batch()` puts up to 1,000 decisions in
+one transaction instead of one per decision.
 
 ---
 
@@ -220,33 +403,6 @@ evident* record, not an attributable one. See
 
 ---
 
-## Install
-
-Not published to PyPI. Install from source:
-
-```bash
-git clone https://github.com/DuNorth595/xrpl_agent_id
-cd xrpl_agent_id
-pip install -e ".[dev]"
-```
-
-Verify:
-
-```bash
-python -m xrpl_agent_id --version      # → xrpl_agent_id 0.5.0
-python -m pytest tests/                # → 341 passed, 6 skipped (live testnet)
-```
-
-*(Test count as of v0.5.0, verified 2026-10-28.)*
-
-The 6 skips are the live-XRPL integration tests. They self-skip unless
-`RUN_LIVE=1` is set and a testnet secret is available:
-
-```bash
-RUN_LIVE=1 python -m pytest tests/test_integration_ledger_live.py -v
-```
-
----
 
 ## Mainnet readiness
 
@@ -413,6 +569,24 @@ own tagged release. Full history lives in
 Full history: [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 ---
+
+## Contributing
+
+Bug reports are the most valuable contribution. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, the pre-commit checks, and
+the house rules.
+
+**Report an issue:** <https://github.com/DuNorth595/xrpl_agent_id/issues>
+
+Before opening one, please check
+[`docs/03_known_issues.md`](docs/03_known_issues.md) — five defects have
+already been fixed and disclosed, and two of them let a credential count as
+valid when it should not have been.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE). Every source file carries an SPDX header
+and the repository passes `reuse lint`.
 
 ## Copyright, credits, and citation
 

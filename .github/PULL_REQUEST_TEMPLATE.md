@@ -4,7 +4,7 @@
 
 ## Checklist
 
-- [ ] `pytest tests/ -q` — 255 passed, 6 skipped
+- [ ] `pytest tests/ -q` — 341 passed, 6 skipped
 - [ ] `reuse lint` — clean
 - [ ] `pre-commit run --all-files` — clean (seed scanner included)
 - [ ] README updated if any public API, signature, or number changed

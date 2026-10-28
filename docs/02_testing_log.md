@@ -37,8 +37,18 @@ RUN_LIVE=1 /usr/bin/python3 -m pytest tests/test_integration_ledger_live.py -v
 | 2026-09-28 21:35 | 43 | 6 | 49 | Trust library build-out |
 | 2026-10-27 20:40 | 227 | 6 | 233 | Python 3.11 + xrpl-py 5.2.0 — v0.5.0 dependency floor raise. See below. |
 | 2026-10-27 21:30 | 252 | 6 | 258 | v0.5.0 `WalletProvider` — 25 new tests for the provider interface and provider-mode submission. |
+| 2026-10-28 06:15 | 341 | 6 | 347 | v0.5.0 release — fee ceiling, batch anchoring, Merkle proofs, and the read-only authorization-path invariant. |
 
-Latest: **227 offline + 6 live = 233 passing**, 0 failures.
+Latest: **341 offline + 6 live = 347 passing**, 0 failures.
+
+**v0.5.0 release (2026-10-28).** Verified on **Python 3.11 and 3.14**
+with `xrpl-py 5.2.0` — the CI matrix. The suite grew from 258 to 347
+collected tests: the fee-ceiling and price-sensitivity tests, the Merkle
+proof tests, the batch-anchoring tests, and
+`tests/test_read_only_authorization.py`, which pins the invariant that the
+authorization and trust paths never submit a transaction.
+
+The 6 live tests remain opt-in via `RUN_LIVE=1`.
 
 **v0.5.0 dependency floor raise (2026-10-27).** The suite was re-run on
 Python 3.11 with `xrpl-py 5.2.0` before raising the declared floor to

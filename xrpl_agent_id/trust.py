@@ -301,6 +301,12 @@ class TrustRegistry:
         # 0. Bans are evaluated first and are unconditional. A banned agent
         #    is denied whatever it holds, so there is no point checking
         #    anything else.
+        #
+        #    No ledger read happens here, deliberately. A ban is the one
+        #    rule that must not depend on the ledger being reachable: if
+        #    the read were needed and the ledger was down, the ban would
+        #    not be enforced. `all_credentials_found` is left empty,
+        #    because the answer does not depend on it.
         for rule in ban_rules:
             if rule.issuers is None or subject_addr in rule.issuers:
                 return TrustCheckResult(
@@ -308,9 +314,7 @@ class TrustRegistry:
                     satisfied=False,
                     missing_required=[],
                     denied_held=[],
-                    all_credentials_found=self._get_agent_credentials(
-                        client, subject_addr
-                    ),
+                    all_credentials_found=[],
                     banned=True,
                     ban_reason=rule.description or "agent is banned",
                 )

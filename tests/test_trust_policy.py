@@ -261,3 +261,54 @@ def test_ban_accepts_a_mixed_set_of_forms():
     with patch.object(TrustRegistry, "_get_agent_credentials", return_value=[]):
         assert registry.check("did:xrpl:2:" + b).banned is True
         assert registry.check("did:xrpl:2:" + a).banned is True
+
+def test_ban_is_enforced_without_any_ledger_read():
+    """A ban must not depend on the ledger being reachable.
+
+    The ban branch used to populate `all_credentials_found` from the
+    ledger before returning. If the ledger was down, that read raised
+    and the ban was never enforced -- the one rule that must always
+    apply was the one rule that could fail open.
+    """
+    address = "rSubjectAddressXXXXXXXXXXXXXXXXXXXX"
+    registry = TrustRegistry(network="testnet")
+    registry.ban(address, description="banned")
+
+    def unreachable(*args, **kwargs):
+        raise RuntimeError("ledger unreachable")
+
+    with patch.object(TrustRegistry, "_get_agent_credentials", side_effect=unreachable):
+        result = registry.check("did:xrpl:2:" + address)
+
+    assert result.banned is True
+    assert result.satisfied is False
+
+
+def test_ban_makes_no_ledger_call_at_all():
+    """The ban path must not touch the ledger, even a successful one."""
+    address = "rSubjectAddressXXXXXXXXXXXXXXXXXXXX"
+    registry = TrustRegistry(network="testnet")
+    registry.ban(address, description="banned")
+
+    calls = []
+
+    def counting(client, subject_addr):
+        calls.append(subject_addr)
+        return []
+
+    with patch.object(TrustRegistry, "_get_agent_credentials", side_effect=counting):
+        registry.check("did:xrpl:2:" + address)
+
+    assert calls == [], f"the ban path made {len(calls)} ledger read(s)"
+
+
+def test_ban_result_has_no_credentials_listed():
+    """all_credentials_found is empty for a ban -- the answer does not need it."""
+    address = "rSubjectAddressXXXXXXXXXXXXXXXXXXXX"
+    registry = TrustRegistry(network="testnet")
+    registry.ban(address, description="banned")
+
+    with patch.object(TrustRegistry, "_get_agent_credentials", return_value=[]):
+        result = registry.check("did:xrpl:2:" + address)
+
+    assert result.all_credentials_found == []

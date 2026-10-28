@@ -589,7 +589,7 @@ solving a different problem.
 
 ```
 $ python -m pytest tests/ -q
-382 passed, 6 skipped
+385 passed, 6 skipped
 ```
 
 *(Verified against v0.5.2 on 2026-10-28.)*

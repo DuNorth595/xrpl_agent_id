@@ -38,9 +38,18 @@ found by reviewing the API rather than by a failing test.
   and `ban_reason`. A ban with no credential type matches on the
   subject alone, regardless of what the agent holds.
 - `TrustCheckResult.banned` and `TrustCheckResult.ban_reason`.
-- `tests/test_trust_policy.py` — 21 tests covering all of the above.
+- `tests/test_trust_policy.py` — 24 tests covering all of the above.
 
 ### Fixed
+
+- **A ban could fail open.** The ban branch populated
+  `all_credentials_found` from the ledger before returning. If the
+  ledger was unreachable or slow, that read raised and the ban was
+  never enforced — the one rule that must always apply was the one
+  rule that could fail open. A ban is now evaluated with no ledger
+  access at all, so it holds regardless of ledger availability.
+  `all_credentials_found` is empty for a banned agent, because the
+  answer does not depend on it.
 
 - **The controller-ban gap is now documented.** `TrustRegistry.ban()`
   bans the *subject*. It does not ban the agent's controllers — the

@@ -36,6 +36,7 @@ RUN_LIVE=1 /usr/bin/python3 -m pytest tests/test_integration_ledger_live.py -v
 | 2026-09-28 12:30 | 27 | 4 | 31 | Initial live wire-up |
 | 2026-09-28 21:35 | 43 | 6 | 49 | Trust library build-out |
 | 2026-10-27 20:40 | 227 | 6 | 233 | Python 3.11 + xrpl-py 5.2.0 — v0.5.0 dependency floor raise. See below. |
+| 2026-10-27 21:30 | 252 | 6 | 258 | v0.5.0 `WalletProvider` — 25 new tests for the provider interface and provider-mode submission. |
 
 Latest: **227 offline + 6 live = 233 passing**, 0 failures.
 

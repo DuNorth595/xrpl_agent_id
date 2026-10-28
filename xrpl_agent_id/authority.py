@@ -98,7 +98,7 @@ class Authority(AgentIdentity):
             credential_type=credential_type.hex().upper(),
         )
         client = get_client(self.network)
-        result = submit_with_retry(tx, client, self.wallet)
+        result = submit_with_retry(tx, client, self.provider)
         return (result or {}).get("hash", "")
 
     # ---- Bulk verification -------------------------------------------------

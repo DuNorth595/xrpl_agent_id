@@ -32,6 +32,11 @@ from xrpl_agent_id.trust import (
     TrustPolicy,
     TrustRegistry,
 )
+from xrpl_agent_id.wallet import (
+    ExternalSignerProvider,
+    SeedWalletProvider,
+    WalletProvider,
+)
 
 __version__ = "0.4.3"
 XRPL_AGENT_ID_VERSION = __version__  # canonical alias — referenced in docs/tests
@@ -103,6 +108,10 @@ __all__ = [
     "TrustCheckResult",
     "TrustPolicy",
     "TrustRegistry",
+    # Wallet providers (v0.5.0)
+    "ExternalSignerProvider",
+    "SeedWalletProvider",
+    "WalletProvider",
     # Version (contract — pinned by tests/test_public_api.py)
     "XRPL_AGENT_ID_VERSION",
     "XRPL_AGENT_ID_VERSION_INFO",

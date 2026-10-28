@@ -39,6 +39,10 @@ REQUIRED_PUBLIC_API = [
     "TrustCheckResult",
     "TrustPolicy",
     "TrustRegistry",
+    # Wallet providers (v0.5.0)
+    "ExternalSignerProvider",
+    "SeedWalletProvider",
+    "WalletProvider",
     # Version
     "XRPL_AGENT_ID_VERSION",
     "XRPL_AGENT_ID_VERSION_INFO",

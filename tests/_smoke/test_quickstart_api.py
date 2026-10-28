@@ -40,36 +40,42 @@ def smoke_env():
     assert isinstance(env["CRED_TYPE"], bytes)
 
     # ---- Step 3: issue_credential accepts the documented arg shape ----
-    # The mock will fail downstream in submit_and_wait's async dance. We catch
-    # only TypeError; if it's the expected "awaited a non-awaitable" TypeError
-    # from xrpl-py (not from issue_credential's own arg validation), the
-    # signature is correct.
+    # This test is about the CALL SHAPE -- that the documented keyword
+    # arguments are accepted and the transaction is built from them. It is
+    # not about reaching the ledger, so the submission itself is stubbed.
     #
-    # The wording of CPython's "object is not awaitable" TypeError has changed
-    # across versions — 3.11 said "object MagicMock can't be used in 'await'
-    # expression", 3.14 says "'MagicMock' object can't be awaited". Asserting
-    # on either exact string would make this test a CPython-version tripwire
-    # for no benefit. What matters is the INTENT: the TypeError came from
-    # awaiting the mock, not from our own argument validation. So we check
-    # that the message mentions the mock and that it is an await complaint.
-    with patch("xrpl_agent_id.network.get_client", return_value=mock_client):
+    # Note (v0.5.0): the submission used to be exercised against a bare
+    # MagicMock client, which worked because `submit_and_wait` did its own
+    # autofill. With a WalletProvider the library autofills and signs
+    # BEFORE submitting, and autofill asks the client for account_info,
+    # server_info, fee and ledger data -- so a bare MagicMock is no longer a
+    # usable stand-in for a client. Stubbing the submission directly is both
+    # simpler and more honest about what this test actually checks.
+    captured = {}
+
+    def fake_submit_with_retry(tx, client, provider, **kwargs):
+        captured["tx"] = tx
+        captured["provider"] = provider
+        return {"hash": "MOCKHASH", "meta": {"TransactionResult": "tesSUCCESS"}}
+
+    with patch("xrpl_agent_id.network.get_client", return_value=mock_client), \
+         patch("xrpl_agent_id.identity.submit_with_retry", fake_submit_with_retry):
         env["weathercorp"] = Authority.from_seed(SEED, network="testnet")
-        try:
-            env["weathercorp"].issue_credential(
-                subject=env["bob"].address,
-                credential_type=env["CRED_TYPE"],
-                uri="https://weathercorp.example/credentials/verified-v1.json",
-            )
-        except TypeError as e:
-            msg = str(e)
-            is_await_complaint = "await" in msg
-            mentions_the_mock = "MagicMock" in msg
-            assert is_await_complaint and mentions_the_mock, (
-                f"unexpected TypeError — issue_credential's own arg validation "
-                f"may have failed: {e}"
-            )
-        except Exception:
-            pass  # any other downstream mock failure is fine
+        env["issued"] = env["weathercorp"].issue_credential(
+            subject=env["bob"].address,
+            credential_type=env["CRED_TYPE"],
+            uri="https://weathercorp.example/credentials/verified-v1.json",
+        )
+
+    # The credential came back unaccepted -- issuance does not accept.
+    assert env["issued"].accepted is False
+    # And the transaction was actually built from the documented arguments.
+    assert captured["tx"].account == env["weathercorp"].address
+    # The transaction carries the credential type as an uppercase hex string
+    # (that is the XRPL wire format for a 256-bit credential type field).
+    assert captured["tx"].credential_type == env["CRED_TYPE"].hex().upper()
+    # The provider is what the identity holds now (v0.5.0 renamed the field).
+    assert captured["provider"] is env["weathercorp"].provider
 
     # ---- Step 4: TrustRegistry.require is fluent ----
     env["reg"] = TrustRegistry(network="testnet")

@@ -137,11 +137,14 @@ class XRPLMirror:
 
     def __init__(
         self,
-        wallet,
+        provider,
         network: str = "testnet",
         destination: str | None = None,
     ) -> None:
-        self.wallet = wallet
+        # v0.5.0: holds a WalletProvider, like AgentIdentity. The previous
+        # attribute name was `wallet`; it is renamed here for the same
+        # reason -- the object may not be a wallet at all.
+        self.provider = provider
         self.network = network
         # If no destination given, fall back to the canonical XRPL
         # "ACCountRoot" address — fees will burn but the memo lands. For
@@ -152,8 +155,13 @@ class XRPLMirror:
     def from_seed(
         cls, seed: str, network: str = "testnet", destination: str | None = None
     ) -> "XRPLMirror":
+        from xrpl_agent_id.wallet import SeedWalletProvider
         from xrpl.wallet import Wallet
-        return cls(wallet=Wallet.from_seed(seed), network=network, destination=destination)
+        return cls(
+            provider=SeedWalletProvider(Wallet.from_seed(seed)),
+            network=network,
+            destination=destination,
+        )
 
     def submit(self, decision: AuthorizationDecision, extra: dict | None = None) -> str:
         """Submit the decision hash as a memo on a payment to ``destination``.
@@ -177,7 +185,7 @@ class XRPLMirror:
         memo_data = json.dumps(memo_payload, separators=(",", ":"))
 
         tx = Payment(
-            account=self.wallet.address,
+            account=self.provider.classic_address,
             destination=self.destination,
             amount="1",  # 1 drop — the smallest valid XRP amount. 0-XRP fails
                          # temBAD_AMOUNT for non-ACCountRoot destinations.
@@ -190,7 +198,7 @@ class XRPLMirror:
             ],
         )
         client = get_client(self.network)
-        result = submit_with_retry(tx, client, self.wallet)
+        result = submit_with_retry(tx, client, self.provider)
         tx_hash = (result or {}).get("hash", "")
         return tx_hash
 

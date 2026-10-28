@@ -50,6 +50,23 @@ xrpl_agent_id.<NAME>  # all names below must be reachable this way
 | `TrustPolicy` | A set of `require` / `deny` rules. |
 | `TrustRegistry` | Evaluates an agent DID against a `TrustPolicy`. |
 
+## Wallet providers
+
+Added in v0.5.0. A provider is anything that can identify an account and
+sign transactions for it — including a KMS, an HSM, or a hardware wallet that
+never reveals the key.
+
+| Name | Purpose |
+| --- | --- |
+| `WalletProvider` | The protocol. Three members: `classic_address`, `public_key`, `sign(tx)`. Structural — any object with those members satisfies it. |
+| `SeedWalletProvider` | Wraps an `xrpl.wallet.Wallet` in process. The pre-v0.5.0 behaviour. |
+| `ExternalSignerProvider` | Signs via a caller-supplied callable, for KMS / HSM / hardware-wallet integration. |
+
+`AgentIdentity.provider` holds one of these. The previous `AgentIdentity.wallet`
+attribute is **deprecated** and will be removed in v0.6.0; it still works for a
+`SeedWalletProvider` and raises a clear `AttributeError` for an external one,
+which has no wallet to return.
+
 ## Version
 
 | Name | Purpose |
@@ -86,6 +103,8 @@ importable from `xrpl_agent_id`:
   `ReasonCode`, `RequestContext`, `LedgerAuditLog`, `XRPLMirror`, `Journal`,
   `AuditRecord`, `Ban`, `AgentRecord`, `AgentRegistry` — all internal-only,
   not re-exported.
+* `provider_from_wallet` — a convenience helper in
+  `xrpl_agent_id.wallet`, not re-exported at the top level.
 
 Use the names listed under "Core types", "DID helpers", "Network helpers",
 "Trust library", and "Version" instead.

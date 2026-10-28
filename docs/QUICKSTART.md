@@ -249,7 +249,85 @@ The DID's network ID flips from `2` to `1`. The library never assumes testnet by
 
 ---
 
-## 11. Where to go next
+## 11. Signing with an external key (KMS, HSM, hardware wallet)
+
+If your signing key lives in a key management system rather than in your
+process, use a `WalletProvider`. The interface is three members —
+`classic_address`, `public_key`, and `sign(tx)` — and any object with those
+members satisfies it, so the same shape could be implemented in another
+language.
+
+The library never sees the key. Your signer gets the canonical XRPL signing
+bytes and returns a signature.
+
+```python
+import hashlib
+from xrpl_agent_id import AgentIdentity, ExternalSignerProvider
+
+class KmsSigner:
+    """Sign the XRPL signing bytes with a cloud KMS.
+
+    A KMS signs a DIGEST, not a pre-hashed message, so the bytes are hashed
+    here the way the KMS expects. Each vendor's client differs; the shape
+    below is the pattern, not a working integration.
+
+    NOTE: AWS KMS does not support Ed25519. Use a secp256k1 key in the KMS
+    and expect the `EC` prefix on the public key rather than `ED`.
+    """
+
+    def __init__(self, key_id, kms_client):
+        self._key_id = key_id
+        self._kms = kms_client
+
+    def __call__(self, message_hex: str) -> str:
+        digest = hashlib.sha256(bytes.fromhex(message_hex)).digest()
+        response = self._kms.sign(
+            KeyId=self._key_id,
+            Message=digest,
+            MessageType="DIGEST",
+            SigningAlgorithm="ECDSA_SHA_256",
+        )
+        return response["Signature"].hex()
+
+provider = ExternalSignerProvider(
+    classic_address="rYourAccountAddress",       # the KMS-backed account
+    public_key="EC...",                           # compressed XRPL public key
+    signer=KmsSigner(key_id="...", kms_client=...),
+)
+
+identity = AgentIdentity(provider=provider, network="mainnet")
+print(identity.did)   # did:xrpl:1:rYourAccountAddress
+```
+
+Two things to get right:
+
+- **The public key must be in XRPL's compressed form.** Cloud KMS systems
+  usually return DER or PEM, which has to be decompressed first. The
+  compressed form is hex, with an `ED` prefix for Ed25519 or `EC` for
+  secp256k1.
+- **The address and the public key must belong to the same keypair.** A
+  mismatch would silently produce a different DID than the account you think
+  you are.
+
+Everything else in this guide works the same with a provider — issuing,
+accepting, and trust checks are unchanged.
+
+> **One constraint to know about:** this library's API is synchronous, and
+> so is the `xrpl-py` API underneath it. Neither can be called from inside a
+> running asyncio event loop — doing that raises `RuntimeError:
+> asyncio.run() cannot be called from a running event loop`. Call it from
+> ordinary synchronous code (as every example here does), or from a thread
+> with no loop running.
+
+> **Note on `AgentIdentity.wallet`:** as of v0.5.0 the identity holds a
+> `provider`, not a `wallet`. The old attribute still works and emits a
+> `DeprecationWarning`; it will be removed in v0.6.0. It returns a real
+> wallet only for a `SeedWalletProvider` — an external provider has no
+> wallet to return.
+
+---
+
+## 12. Where to go next
 
 - **`docs/USE_CASES.md`** — five concrete scenarios where this library fits: agent marketplaces, federated research compute, IoT device fleets, regulated finance workflows, and trust-onboarding for new agents.
 - **`docs/ARCHITECTURE.md`** — the full library map: identity, credentials, trust registry, audit, ban lists, dashboard, and how they fit together.
@@ -260,8 +338,8 @@ The DID's network ID flips from `2` to `1`. The library never assumes testnet by
 
 ## Document status
 
-- **Version:** 0.4.0
+- **Version:** 0.4.3 (with the v0.5.0 `WalletProvider` section)
 - **Author:** S_DevLabs
-- **Last updated:** 2026-09-30
-- **Tested against:** `xrpl_agent_id` 0.4.0 on XRPL testnet
+- **Last updated:** 2026-10-27
+- **Tested against:** `xrpl_agent_id` 0.4.3 on XRPL testnet
 - **Audience:** First-time users of `xrpl_agent_id`. Assumes basic XRPL knowledge (accounts, seeds, transactions) but no prior exposure to this library.

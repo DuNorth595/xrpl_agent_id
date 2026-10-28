@@ -32,6 +32,28 @@ track are described below; the `WalletProvider` interface and the
   *Migration:* upgrade to Python 3.10 or newer and reinstall. No code changes
   are required — the package's own API is unchanged by this release.
 
+### Added
+- **`WalletProvider` — a pluggable signer for XRPL transactions.** New public
+  names: `WalletProvider` (the protocol), `SeedWalletProvider` (wraps an
+  in-process `xrpl.wallet.Wallet`), and `ExternalSignerProvider` (delegates to
+  a caller-supplied signing callable, for a KMS, HSM, or hardware wallet).
+
+  The interface is three members — `classic_address`, `public_key`, and
+  `sign(tx)` — and is structural, so any object with those members satisfies
+  it. A KMS-backed provider therefore needs no key material in this process:
+  it signs the canonical XRPL signing bytes and returns a signature.
+
+  This is what makes the library usable in an institutional setting, where
+  the signing key lives in a key management system rather than in the
+  application. `xrpl-py` binds signing to a concrete `Wallet` object and
+  offers no such interface; the ledger side already supported it, because
+  `rippled`'s `submit` accepts a pre-signed `tx_blob` and `xrpl-py`'s
+  `submit_and_wait` accepts an already-signed transaction with `wallet=None`.
+
+- **`ExternalSignerProvider`** takes a signing callable and does the
+  XRPL-specific encoding. It performs no internal retry and caches no
+  signatures, so there is exactly one retry story rather than two.
+
 ### Changed
 - **`xrpl-py` is pinned to `>=5.0,<6`.** The upper bound is deliberate: a major
   bump in the dependency is a breaking change for this package and should be
@@ -44,6 +66,37 @@ track are described below; the `WalletProvider` interface and the
 - **README badges** now read "Python 3.10+" and "xrpl-py 5.0+".
 - **`CONTRIBUTING.md`** documents the 3.10–3.13 matrix. Its expected test count
   was also corrected from 201 to 227, which was stale.
+- **`AgentIdentity.wallet` is now `AgentIdentity.provider`.** The field holds
+  a `WalletProvider` rather than a concrete `Wallet`, because a provider that
+  signs externally has no wallet to hold. The old name still works and emits
+  a `DeprecationWarning`; it will be **removed in v0.6.0**, giving two
+  releases of overlap. `AgentIdentity.from_seed` is unchanged in behaviour —
+  it still produces an identity backed by an in-process wallet.
+
+- **`AgentIdentity.seed` is deprecated** and will be removed in v0.6.0. A
+  provider that signs externally has no seed at all, so this property cannot
+  be part of the identity contract — only of the in-process-wallet case. On a
+  `SeedWalletProvider` it still works, with a warning; on any other provider
+  it raises `AttributeError` with a message that says so.
+
+- **`XRPLMirror` (in `xrpl_agent_id.audit`) holds a provider** under the
+  attribute name `provider`, for the same reason. Its `from_seed` is
+  unchanged.
+
+- **Provider-mode submission re-autofills and re-signs on every attempt.**
+  This is a behavioural fix, not just a refactor. `xrpl.transaction.submit_and_wait`
+  autofills an *unsigned* transaction on every call, so resubmitting the same
+  transaction object is safe. But its internal `_get_signed_tx` returns
+  immediately when a transaction is already signed — and a provider signs
+  before submitting. A retry would therefore have resubmitted the identical
+  stale blob, with the original `LastLedgerSequence` still baked in, failing
+  with `tefMAX_LEDGER` exactly when the retry was most needed. Measured
+  autofill horizon on public testnet: ~19 ledgers (~76 s) against a retry
+  backoff of 2 s then 4 s — normally inside the window, but not on a
+  congested ledger, which is when transient errors occur.
+
+  This is the `tefPAST_SEQ` failure mode of v0.4.2 reappearing in a new
+  place, and it is now covered by a regression test.
 
 ### Fixed
 - **A test asserted on CPython's exact error wording and broke on Python 3.14.**
@@ -57,6 +110,20 @@ track are described below; the `WalletProvider` interface and the
 
   No library behaviour changed. The 227-test suite passes on Python 3.11 and
   3.14 with xrpl-py 5.2.0.
+- **A quickstart smoke test depended on CPython's exact error wording.** It
+  asserted that a `TypeError` message contained `"can't be used in 'await'
+  expression"`; CPython 3.14 changed that to `"'MagicMock' object can't be
+  awaited"`, so the test errored on 3.14 despite correct library behaviour.
+  The assertion now checks the intent — that the `TypeError` came from
+  awaiting the mock rather than from the library's own argument validation.
+
+- **The same smoke test no longer relies on a bare `MagicMock` standing in
+  for a network client.** With a provider, the library autofills and signs
+  before submitting, and autofill asks the client for `account_info`,
+  `server_info`, fee and ledger data — so a bare mock is no longer a usable
+  stand-in. The test now stubs the submission directly, which is both
+  simpler and more honest about what the test actually checks (the documented
+  call shape, not reaching the ledger).
 
 ## [0.4.3] - 2026-10-23
 

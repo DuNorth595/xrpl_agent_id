@@ -17,6 +17,7 @@ canonical XLS-70 flow the Issuer signs and submits, not the Subject.
 from __future__ import annotations
 
 import json as _json
+import warnings
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -24,6 +25,7 @@ from xrpl_agent_id.tx_submit import submit_with_retry
 from xrpl.wallet import Wallet
 
 from xrpl_agent_id.did import DIDDocument, did_from_account
+from xrpl_agent_id.wallet import SeedWalletProvider, WalletProvider
 
 
 class XRPLTransactionError(RuntimeError):
@@ -41,11 +43,20 @@ if TYPE_CHECKING:
 class AgentIdentity:
     """An XRPL identity for an AI agent.
 
-    Wraps an xrpl-py Wallet and exposes a high-level identity API.
-    The wallet holds the keys. This class holds the identity layer on top.
+    Holds a `WalletProvider` -- something that can identify an account and
+    sign transactions for it -- and exposes a high-level identity API on top.
+
+    The provider holds the keys (or, for a KMS-backed provider, does NOT
+    hold the keys and signs remotely). This class holds the identity layer.
+
+    .. deprecated:: 0.5.0
+       The ``wallet`` attribute is deprecated in favour of ``provider`` and
+       will be removed in v0.6.0. It is a *field rename*, not a behaviour
+       change: `AgentIdentity.from_seed` still produces an identity backed by
+       an in-process wallet, and every operation behaves identically.
     """
 
-    wallet: Wallet
+    provider: WalletProvider
     network: str = "testnet"
 
     @classmethod
@@ -54,7 +65,32 @@ class AgentIdentity:
         # xrpl-py Wallet auto-detects testnet/mainnet from the seed prefix.
         # We override with the explicit network param.
         w = Wallet.from_seed(seed)
-        return cls(wallet=w, network=network)
+        return cls(provider=SeedWalletProvider(w), network=network)
+
+    @property
+    def wallet(self) -> Wallet:
+        """The underlying xrpl-py Wallet.
+
+        .. deprecated:: 0.5.0
+           Removed in v0.6.0. Use ``.provider`` instead. This only works
+           when the provider actually wraps a wallet; a KMS-backed provider
+           has no wallet, and asking for one raises ``AttributeError`` with a
+           message that says so.
+        """
+        warnings.warn(
+            "AgentIdentity.wallet is deprecated and will be removed in "
+            "v0.6.0; use AgentIdentity.provider instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        underlying = getattr(self.provider, "wallet", None)
+        if underlying is None:
+            raise AttributeError(
+                "This AgentIdentity's provider does not wrap an "
+                "xrpl.wallet.Wallet (it signs externally, e.g. via a KMS), "
+                "so it has no .wallet. Use .provider instead."
+            )
+        return underlying
 
     @property
     def did(self) -> str:
@@ -64,17 +100,39 @@ class AgentIdentity:
     @property
     def address(self) -> str:
         """The raw XRPL classic address (rXXX...)."""
-        return self.wallet.classic_address
+        return self.provider.classic_address
 
     @property
     def public_key(self) -> str:
         """The master public key (hex, compressed)."""
-        return self.wallet.public_key
+        return self.provider.public_key
 
     @property
     def seed(self) -> str:
-        """The master seed. NEVER log this. NEVER print this."""
-        return self.wallet.seed
+        """The master seed. NEVER log this. NEVER print this.
+
+        .. deprecated:: 0.5.0
+           Removed in v0.6.0. A provider that signs externally (a KMS, an
+           HSM, a hardware wallet) has no seed at all, so this property
+           cannot be part of the identity contract -- only of the
+           in-process-wallet case. Use ``.provider`` and, if you truly need
+           the seed, ``.provider.wallet.seed`` on a
+           `SeedWalletProvider`.
+        """
+        warnings.warn(
+            "AgentIdentity.seed is deprecated and will be removed in v0.6.0; "
+            "a provider that signs externally has no seed to expose.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        underlying = getattr(self.provider, "wallet", None)
+        if underlying is None:
+            raise AttributeError(
+                "This AgentIdentity's provider does not wrap an "
+                "xrpl.wallet.Wallet, so it has no seed. A KMS-backed "
+                "provider never holds the key at all."
+            )
+        return underlying.seed
 
     # ---- Issuer-side operations -------------------------------------------
 
@@ -112,7 +170,7 @@ class AgentIdentity:
 
         # Submit
         client = get_client(self.network)
-        result = submit_with_retry(tx, client, self.wallet)
+        result = submit_with_retry(tx, client, self.provider)
         tx_hash = result.get("hash")
         # tx_result like "tesSUCCESS"
         tx_result = (result.get("meta") or {}).get("TransactionResult")
@@ -151,7 +209,7 @@ class AgentIdentity:
             credential_type=credential_type.hex().upper(),
         )
         client = get_client(self.network)
-        result = submit_with_retry(tx, client, self.wallet)
+        result = submit_with_retry(tx, client, self.provider)
         return (result or {}).get("hash", "")
 
     # ---- DID operations ----------------------------------------------------
@@ -178,7 +236,7 @@ class AgentIdentity:
             did_document=doc_hex,
         )
         client = get_client(self.network)
-        result = submit_with_retry(tx, client, self.wallet)
+        result = submit_with_retry(tx, client, self.provider)
         return (result or {}).get("hash", "")
 
     def set_did_uri(self, uri: str) -> str:
@@ -199,7 +257,7 @@ class AgentIdentity:
 
         tx = DIDSet(account=self.address, uri=uri_hex)
         client = get_client(self.network)
-        result = submit_with_retry(tx, client, self.wallet)
+        result = submit_with_retry(tx, client, self.provider)
         return (result or {}).get("hash", "")
 
     # ---- Verification ------------------------------------------------------

@@ -143,6 +143,34 @@ def _check_fee_ceiling(tx: Any, max_fee_drops: int | None) -> None:
         )
 
 
+def max_fee_drops_for_usd(usd_limit: float, xrp_price: float) -> int:
+    """Convert a USD fee ceiling into a drop ceiling.
+
+    The fee is a fixed number of *drops*, so a drop ceiling is
+    price-agnostic: it caps the XRP paid, not the dollars. If the
+    operator's real constraint is a dollar amount -- "never spend more
+    than $0.25 on one transaction" -- then the ceiling has to be
+    recomputed against the current price, or the same drop ceiling
+    costs 750x more at $1,000/XRP than at $1.33/XRP.
+
+    Args:
+        usd_limit: the maximum dollar cost of a single transaction.
+        xrp_price: the current XRP price in USD.
+
+    Returns:
+        The drop ceiling to pass as ``max_fee_drops``.
+
+    Raises:
+        ValueError: if either argument is not positive.
+    """
+    if usd_limit <= 0:
+        raise ValueError("usd_limit must be positive")
+    if xrp_price <= 0:
+        raise ValueError("xrp_price must be positive")
+    xrp_limit = usd_limit / xrp_price
+    return max(1, int(xrp_limit * 1_000_000))
+
+
 def _prepare_attempt(
     tx: Any,
     client: Any,

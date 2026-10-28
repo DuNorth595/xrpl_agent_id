@@ -31,6 +31,7 @@ from xrpl_agent_id.authorization import (
 from xrpl_agent_id.tx_submit import (
     FeeCeilingExceeded,
     _check_fee_ceiling,
+    max_fee_drops_for_usd,
     submit_with_retry,
 )
 
@@ -307,3 +308,54 @@ def test_ceiling_refusal_does_not_lose_the_decision(tmp_path) -> None:
     rows = log.query()
     assert len(rows) == 1, "the decision is still in the log"
     assert rows[0].allow is False
+
+
+# -----------------------------------------------------------------------
+# max_fee_drops_for_usd -- the price-aware ceiling
+# -----------------------------------------------------------------------
+
+
+def test_usd_ceiling_at_current_price() -> None:
+    """At $1.33/XRP, a $0.25 ceiling is ~188,000 drops."""
+    drops = max_fee_drops_for_usd(0.25, 1.33)
+    assert 180_000 < drops < 190_000
+    # And it round-trips: the drops cost about the limit.
+    assert drops * 1e-6 * 1.33 == pytest.approx(0.25, rel=0.01)
+
+
+def test_usd_ceiling_shrinks_as_price_rises() -> None:
+    """The same dollar ceiling is fewer drops when XRP is dearer.
+
+    This is the whole point: a fixed drop ceiling is NOT a fixed
+    dollar ceiling. At $1,000/XRP the same $0.25 limit is 250 drops,
+    not 188,000.
+    """
+    cheap = max_fee_drops_for_usd(0.25, 1.33)
+    dear = max_fee_drops_for_usd(0.25, 1000.0)
+    assert dear < cheap
+    assert dear == 250  # 0.25 / 1000 * 1e6
+
+
+def test_usd_ceiling_holds_its_dollar_value_across_prices() -> None:
+    """Whatever the price, the ceiling costs the same dollars."""
+    for price in (0.50, 1.33, 20.0, 50.0, 500.0, 1000.0):
+        drops = max_fee_drops_for_usd(1.00, price)
+        cost_usd = drops * 1e-6 * price
+        assert cost_usd == pytest.approx(1.00, rel=0.001), f"price {price}"
+
+
+def test_usd_ceiling_rejects_bad_input() -> None:
+    """Non-positive inputs are programming errors and say so."""
+    with pytest.raises(ValueError):
+        max_fee_drops_for_usd(0, 1.33)
+    with pytest.raises(ValueError):
+        max_fee_drops_for_usd(-1, 1.33)
+    with pytest.raises(ValueError):
+        max_fee_drops_for_usd(1.0, 0)
+    with pytest.raises(ValueError):
+        max_fee_drops_for_usd(1.0, -1.33)
+
+
+def test_usd_ceiling_never_returns_zero() -> None:
+    """A ceiling must be at least one drop, or it would block everything."""
+    assert max_fee_drops_for_usd(0.0000001, 1000.0) >= 1

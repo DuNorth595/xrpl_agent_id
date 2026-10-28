@@ -37,6 +37,10 @@ from xrpl_agent_id.wallet import (
     SeedWalletProvider,
     WalletProvider,
 )
+from xrpl_agent_id.tx_submit import (
+    FeeCeilingExceeded,
+    max_fee_drops_for_usd,
+)
 
 __version__ = "0.4.3"
 XRPL_AGENT_ID_VERSION = __version__  # canonical alias — referenced in docs/tests
@@ -112,6 +116,9 @@ __all__ = [
     "ExternalSignerProvider",
     "SeedWalletProvider",
     "WalletProvider",
+    # Fee control (v0.5.0)
+    "FeeCeilingExceeded",
+    "max_fee_drops_for_usd",
     # Version (contract — pinned by tests/test_public_api.py)
     "XRPL_AGENT_ID_VERSION",
     "XRPL_AGENT_ID_VERSION_INFO",

@@ -251,6 +251,73 @@ implementation provisions one account per agent.
 
 ---
 
+## 4.1 Price sensitivity — what happens at $20, $50, $500, $1,000
+
+Both the fee and the reserve are denominated in **XRP**, so both scale
+linearly with price. The arithmetic is trivial; the *system* behaviour
+is not. Four things change beyond the dollar sign.
+
+### 4.1.1 The daily bill at 1M decisions/day
+
+| Strategy | $1.33 | $20 | $50 | $500 | $1,000 |
+|---|---|---|---|---|---|
+| per-decision @ base | $13 | $200 | $500 | $5,000 | $10,000 |
+| per-decision @ median | $6,650 | $100,000 | $250,000 | $2,500,000 | $5,000,000 |
+| **batch 1,000 @ base** | **$0.01** | **$0.20** | **$0.50** | **$5** | **$10** |
+| **batch 1,000 @ median** | **$6.65** | **$100** | **$250** | **$2,500** | **$5,000** |
+| batch 10,000 @ median | $0.67 | $10 | $25 | $250 | $500 |
+
+### 4.1.2 Affordable volume on a $1,000/month audit budget
+
+| XRP price | per-decision @ base | per-decision @ median | batch 1,000 @ base |
+|---|---|---|---|
+| $1.33 | 2,506,266/day | 5,013/day | 2,506/day |
+| $20 | 166,667/day | 333/day | 167/day |
+| $50 | 66,667/day | 133/day | 67/day |
+| $500 | 6,667/day | 13/day | 7/day |
+| $1,000 | 3,333/day | 7/day | 3/day |
+
+**At $1,000/XRP, per-decision anchoring at the median fee buys 7
+decisions a day.** Batching at the base fee buys 3,333 — 475× more.
+**The two optimizations are not independent: batching is a
+prerequisite for the base fee to be reachable.** At high prices the base
+fee becomes the only viable anchoring mode, and batching is what makes
+it viable.
+
+### 4.1.3 What actually changes, beyond the dollar sign
+
+1. **A drop ceiling is not a dollar ceiling.** `max_fee_drops` caps the
+   XRP paid. The same 5,000-drop ceiling is $6.65 at $1.33/XRP and
+   $5,000 at $1,000/XRP. If the operator's constraint is a dollar
+   amount, use `max_fee_drops_for_usd(usd_limit, xrp_price)` to
+   recompute it against the current price.
+
+2. **The reserve becomes a treasury decision long before the fee
+   becomes a problem.** 1 XRP per account is $20 at $20/XRP and $1,000
+   at $1,000/XRP. *Account-per-agent* becomes unaffordable well before
+   the fee does. The shared-account topology (§3.2) is the fix, and it
+   is worth more at high prices than at low ones.
+
+3. **The lockup is XRP-denominated, so it carries no price exposure.**
+   It is a storage requirement, not a position: 1.2 XRP locked is 1.2
+   XRP locked whether XRP is at $0.50 or $1,000. It is released on
+   deletion either way. The *dollar value* of the lockup tracks price,
+   but the *XRP obligation* does not.
+
+4. **A fee denominated in a volatile asset is a long-term cost
+   ratchet.** The fee is a fixed number of drops, so if the asset
+   trends up, the dollar cost of every transaction trends up with it.
+   This is the structural reason to measure cost in **transactions per
+   dollar**, not dollars per transaction.
+
+### 4.1.4 The one structural recommendation
+
+**Denominate in XRP, not USD.** If the service is priced in XRP (or the
+customer holds XRP), a price rise is neutral: the cost is flat in XRP
+and the revenue moves with it. A USD-priced service paying XRP-denominated
+fees is a **naked short on XRP** — it gets worse exactly when the
+ecosystem it is built on is succeeding.
+
 ## 5. The conclusion that matters
 
 **For millions of AI transactions per day, the fee is the whole game, and

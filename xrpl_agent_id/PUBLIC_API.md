@@ -67,6 +67,13 @@ attribute is **deprecated** and will be removed in v0.6.0; it still works for a
 `SeedWalletProvider` and raises a clear `AttributeError` for an external one,
 which has no wallet to return.
 
+## Fee control
+
+| Name | Purpose |
+| --- | --- |
+| `FeeCeilingExceeded` | Raised when a transaction's fee exceeds the configured drop ceiling. Raised *before* signing, so no premium is ever paid. |
+| `max_fee_drops_for_usd(usd_limit, xrp_price)` | Convert a USD fee ceiling into a drop ceiling. A drop ceiling caps the XRP paid, not the dollars — the same 5,000-drop ceiling is $6.65 at $1.33/XRP and $5,000 at $1,000/XRP. Use this when the real constraint is a dollar amount. |
+
 ## Version
 
 | Name | Purpose |

@@ -9,6 +9,7 @@ accept, and verify. One Python package, no extra infrastructure.
 [![xrpl-py 5.0+](https://img.shields.io/badge/xrpl--py-5.0+-black.svg)](https://pypi.org/project/xrpl-py/)
 [![SPDX: REUSE](https://img.shields.io/badge/SPDX-REUSE--compliant-brightgreen)](https://reuse.software/)
 [![CI](https://github.com/DuNorth595/xrpl_agent_id/actions/workflows/ci.yml/badge.svg)](https://github.com/DuNorth595/xrpl_agent_id/actions/workflows/ci.yml)
+[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/DuNorth595/badge.svg)](https://hub.xerj.org/contributors/DuNorth595)
 
 <p align="center">
   <img src="docs/social-preview.jpg" alt="xrpl_agent_id — social preview" width="600">

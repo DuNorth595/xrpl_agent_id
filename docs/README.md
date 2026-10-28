@@ -9,7 +9,7 @@
 | **See what it's for** | [`USE_CASES.md`](USE_CASES.md) — five concrete scenarios |
 | **Read the API contract** | [`xrpl_agent_id/PUBLIC_API.md`](../xrpl_agent_id/PUBLIC_API.md) — every public name and its stability policy |
 | **Know the cost** | [`MAINNET_DECISION.md`](MAINNET_DECISION.md) §1 — fees, reserve, and the lockup/release rules |
-| **Decide about mainnet** | [`MAINNET_DECISION.md`](MAINNET_DECISION.md) — the go/no-go reasoning, written before any mainnet transaction |
+| **Decide about mainnet** | [`MAINNET_DECISION.md`](MAINNET_DECISION.md) — the go/no-go reasoning, plus the 2026-10-28 validation run and its results |
 | **Review before trusting it** | [`03_known_issues.md`](03_known_issues.md) — five defects that shipped, and why the tests missed them |
 
 ## Reference

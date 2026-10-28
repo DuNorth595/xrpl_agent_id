@@ -406,8 +406,10 @@ evident* record, not an attributable one. See
 
 ## Mainnet readiness
 
-**Not recommended for mainnet use in v0.4.x.** This is a deliberate gate, not
-an oversight.
+**Mainnet is supported as of v0.5.0.** The credential lifecycle was validated
+against real mainnet ledger state on **2026-10-28** — `DIDSet`,
+`CredentialCreate`, `CredentialAccept`, `SignerListSet`, and the deletion
+paths, all on network ID `1`.
 
 | Surface | Mainnet OK? | Why |
 |---|---|---|
@@ -416,6 +418,13 @@ an oversight.
 | Credential acceptance (`CredentialAccept`) | Yes | Free, optional opt-in |
 | Authorization decisions / audit | Forensic only | The **ledger credential entry** is the confirmed artifact; the audit memo is provenance-verified but **not attributable to the issuer** |
 | Dashboard `/api/verify` | Yes | Read-only; queries the ledger only |
+
+**Two things this library does not do.** It does not implement
+`DepositPreauth`, so its trust check is a library-side evaluation rather
+than a protocol-level guarantee — a relying party who wants the ledger to
+enforce issuer trust must create their own `DepositPreauth` allowlist. And
+it does not ship a live KMS/HSM adapter; `WalletProvider` is the interface,
+and the `ExternalSignerProvider` path is what a KMS-backed deployment uses.
 
 Two cost facts worth knowing before you plan an XRPL deployment: mainnet
 requires a **1 XRP base reserve per account** and a **0.2 XRP owner reserve
@@ -432,12 +441,8 @@ One real agent identity — account, DID, and one credential — locks about
 two-transaction path and drops the lockup to 1.2 XRP by skipping the
 optional DID object.
 
-A note on what this library does *not* do: it does **not** implement
-`DepositPreauth`, so its trust check is a library-side evaluation rather
-than a protocol-level guarantee. A relying party who wants the ledger to
-enforce issuer trust must create their own `DepositPreauth` allowlist.
-
-The full reasoning, written before any mainnet transaction, is in
+The full reasoning — written before any mainnet transaction, then updated
+with the run results — is in
 [`docs/MAINNET_DECISION.md`](docs/MAINNET_DECISION.md).
 
 ---
@@ -544,7 +549,7 @@ testnet access. The live testnet path is opt-in and documented above.
 | [`docs/USE_CASES.md`](docs/USE_CASES.md) | Five concrete scenarios, mapped to shipped code |
 | [`docs/01_issuance_flow.md`](docs/01_issuance_flow.md) | End-to-end issuance walkthrough |
 | [`docs/03_known_issues.md`](docs/03_known_issues.md) | Disclosed defects and the version that fixed each |
-| [`docs/MAINNET_DECISION.md`](docs/MAINNET_DECISION.md) | The go/no-go reasoning for mainnet, written before any mainnet tx |
+| [`docs/MAINNET_DECISION.md`](docs/MAINNET_DECISION.md) | The go/no-go reasoning for mainnet, plus the 2026-10-28 validation run and its results |
 | [`docs/STRESS_TEST_v0.3.0.md`](docs/STRESS_TEST_v0.3.0.md) | Live testnet stress-test results |
 | [`SECURITY.md`](SECURITY.md) | Security policy and supported versions |
 

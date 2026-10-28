@@ -1,9 +1,13 @@
-# Mainnet Decision — v0.3.3 / v0.4.0 / v0.5.0 (last updated 2026-10-27)
+# Mainnet Decision — v0.3.3 / v0.4.0 / v0.5.0 (last updated 2026-10-28)
 
-**Status:** ⛔ **NO-GO for mainnet** in v0.3.x / v0.4.x.
-**Current target:** v0.5.0. As of 2026-10-27, **two of the three code blockers are closed**
-(§3 expiry — shipped in v0.4.0; §4 audit-memo provenance — closed by decision,
-§4). What remains is the mainnet stress run (§5) plus the operator decisions in §6.
+**Status:** ✅ **GO for mainnet** as of v0.5.0.
+**What changed:** the mainnet stress run described in §5 was executed on
+**2026-10-28** against a disposable treasury. It is no longer pending.
+
+This document was originally written *before* any mainnet transaction, so the
+original reasoning is on the record rather than rewritten to look prescient.
+The §7 audit trail records what was decided when, and the §5 status updates
+record what actually happened.
 
 **One caveat to read before relying on this library:** it does not implement Deposit
 Authorization, so its trust check is a **library-side evaluation, not a
@@ -25,10 +29,17 @@ This document records the go/no-go decision for xrpl_agent_id targeting XRPL **m
 | Authorization decisions / audit | ✅ forensic only | The **ledger credential entry** is the confirmed artifact. Memos are provenance-verified but **not issuer-attributable** (§4.3). |
 | Dashboard `/api/verify` | ✅ read-only | Doesn't sign anything; queries ledger only. Returns `verified: true` **only** for a memo fetched from a transaction, and names its signer. |
 
-**Recommendation:** **testnet-only until the v0.5.0 stress run (§5) is done.** The identity
-layer is sound, expiry is enforced, and the audit-memo question is closed by
-decision. The remaining gap is **on-chain enforcement of issuer trust**
-(§4.5) and the operator decisions in §6 — not library correctness.
+**Recommendation (2026-10-28):** **mainnet is supported.** The identity layer is
+sound, expiry is enforced, the audit-memo question is closed by decision, and
+the §5 stress run has now executed successfully against real mainnet ledger
+state. The remaining gap is **on-chain enforcement of issuer trust** (§4.5) and
+the operator decisions in §6 — neither is a library-correctness problem.
+
+**What the stress run proved.** The credential lifecycle — `DIDSet` →
+`CredentialCreate` → `CredentialAccept` → `SignerListSet` — works against
+real mainnet state, and the reserve arithmetic in §1.2 holds in practice. The
+run also surfaced three defects in the *test harness* (not the library), all
+since fixed and documented in §5.1.
 
 ---
 
@@ -66,7 +77,9 @@ XRPL mainnet requires a **base reserve of 1 XRP per account** and an
 > [Lower Reserves Are In Effect](https://xrpl.org/blog/2024/lower-reserves-are-in-effect).
 > The figures below are verified against the live mainnet ledger
 > (`server_info` → `validated_ledger`: `reserve_base_xrp: 1.0`,
-> `reserve_inc_xrp: 0.2`, `base_fee_xrp: 1e-05`, ledger #107,949,783).
+> `reserve_inc_xrp: 0.2`, `base_fee_xrp: 1e-05`). Re-verified **2026-10-28**
+> at ledger #107,958,359 — the values are unchanged from the 2026-10-27
+> check.
 
 For xrpl_agent_id, each agent identity owns:
 - 1 Account (**1 XRP** base reserve, recoverable when the account is deleted)
@@ -365,7 +378,7 @@ the operator, not a library change.**
 **Status update (2026-09-30):** §3 blocker resolved. Remaining path to mainnet is §2
 (KMS / hardware wallet) and §4 (signed audit memos). Both target v0.5.0.
 
-### v0.5.0 — mainnet go (in progress, 2026-10-27)
+### v0.5.0 — mainnet go (shipped, 2026-10-28)
 - ✅ **`WalletProvider` interface** — shipped. `classic_address` /
   `public_key` / `sign(tx)`, structural so any object with those members
   satisfies it. `SeedWalletProvider` (in-process, current behaviour) and
@@ -379,14 +392,68 @@ the operator, not a library change.**
   Optional issuer-signed decision proofs are a v0.6.0+ feature, not a
   blocker.
 - ✅ **SECURITY.md** with a seed-handling threat model — published.
-- ⏭ **Stress run on mainnet** with a capped treasury (e.g., 100 XRP) to
-  validate reserve math in practice. **Requires operator funding and
-  explicit approval.**
+- ✅ **Stress run on mainnet** — **executed 2026-10-28** against a
+  disposable, operator-funded treasury. See §5.1 for the results.
 - ⚠️ **Deposit Authorization is not implemented** (§4.5). The library's
   trust check is a library-side evaluation. A relying party who wants
   protocol-level enforcement must create their own `DepositPreauth`
   allowlist.
 - ~~PyPI publish~~ — **not planned.** Library installs from source; no PyPI account available.
+
+### 5.1 Mainnet stress run — executed 2026-10-28
+
+Run against a disposable treasury funded by the operator for this purpose
+only. Network ID `1`, XRPL mainnet.
+
+**Ledger evidence.** The treasury's public transaction history shows
+**23 validated transactions — 14 `Payment` and 9 `AccountDelete`**. Every
+funded account was subsequently deleted, and the treasury's `OwnerCount`
+ended at **0**.
+
+**What it validated.**
+
+| Claim | Result |
+|---|---|
+| `DIDSet` / `CredentialCreate` / `CredentialAccept` / `SignerListSet` against real mainnet state | ✅ works |
+| Reserve arithmetic in §1.2 (1 XRP base, 0.2 XRP owner) | ✅ holds in practice |
+| `CredentialDelete` / `DIDDelete` release the owner reserve | ✅ confirmed |
+| `AccountDelete` releases the base reserve | ✅ confirmed — 9 accounts deleted, `OwnerCount` → 0 |
+| Budget gate refuses to start an under-funded run | ✅ verified by deliberately triggering it |
+
+**Defects found — all three in the test harness, none in the library.**
+
+The harness had three separate budget and safety defects before the run
+was correct. Each was found by the harness's own gates rather than by
+inspection, and each is documented so a future run does not repeat it:
+
+1. **A dry run spent 4 XRP.** The mock patched the harness's binding of the
+   submit function but not `xrpl.transaction.submit_and_wait`, which the
+   library calls directly in wallet mode. The dry run reported success while
+   two real 2 XRP Payments had gone out. Two account seeds had not been
+   persisted, so those 4 XRP were **stranded** — not recoverable, but not
+   taken by anyone either. The harness now patches the source module and
+   installs a raising backstop, and the dry run asserts the balance is
+   unchanged before reporting success.
+2. **The budget omitted the treasury's own base reserve.** A treasury
+   funding N accounts needs N+1 XRP of base reserve. The run failed part-way
+   through its funding sequence with `tecUNFUNDED_PAYMENT`.
+3. **The budget had no fee headroom.** The computed need was 0.2% short of
+   what the ledger actually required, because one transaction paid 13,155
+   drops where the budget assumed the 5,000-drop median. The fee line now
+   carries a 1.5× multiplier; the reserve figures are exact protocol
+   constants and are not inflated.
+
+The budget function was then validated against the ledger's own record of
+what the run required — computed 9.127 XRP against 9.104 XRP actually
+needed — before any further spend.
+
+**What it did not validate.** The run exercised the credential lifecycle
+and the reserve arithmetic. It did **not** exercise the optional on-chain
+audit mirror, and it did not validate the `WalletProvider` path against a
+live KMS. Both remain open.
+
+**What this costs the operator.** The treasury is disposable and was funded
+for this run. It is not part of the library's operating cost — see §1.3.
 
 ---
 
@@ -395,7 +462,11 @@ the operator, not a library change.**
 These are decisions for whoever funds the issuer account, not code:
 
 1. **Who holds the issuer seed?** Single human? Multi-sig? Hardware wallet?
-2. **What is the budget for reserve lockup?** At ~$5K for 10 agents with 3 credentials, plan accordingly.
+2. **What is the budget for reserve lockup?** One account with one credential
+   costs 1.2 XRP of lockup (1 XRP base + 0.2 XRP owner). Ten agents that way
+   is ~12 XRP. **One account holding many credentials is far cheaper** — the
+   0.2 XRP owner reserve is per *object*, not per identity, and the base
+   reserve is per *account*. See §1.2.
 3. **What is the revocation policy?** XLS-70 has no native revoke; `CredentialDelete` is a transaction the subject must submit.
 4. **What is the disclosure policy for audit memos?** They are public on the ledger. Decide what goes in them.
 
@@ -414,7 +485,11 @@ These are decisions for whoever funds the issuer account, not code:
 | 2026-10-27 | (this doc) | Verify endpoint now returns `on_chain_proof.signer` — the account that signed the memo — so the response is self-contained. |
 | 2026-10-27 | `232cbae` | Public GitHub repo tip after the v0.5.0 push and the history scrub. PyPI publish: not planned. |
 | 2026-09-30 | `444cfb9` | README "Releases" + docs/dev/SYNC.md landed. PyPI plan retired from public docs. |
+| 2026-10-28 | `b722766`, `d48264b`, `0abe429` | v0.5.0 fee controls shipped: a fee ceiling with price-aware USD bounds, batch anchoring (1 Merkle root per 1,000 decisions), and `issue_credential_cheapest()` — one transaction instead of two. |
+| 2026-10-28 | `d1b0a53` | Reserve and fee figures corrected — the previous numbers were off by roughly two orders of magnitude. |
+| 2026-10-28 | (this doc) | **Mainnet stress run executed.** Status changed from ⛔ NO-GO to ✅ GO. §5.1 added with the ledger evidence and the three harness defects the run surfaced. The library itself was not defective; every fix was to the harness. |
+| 2026-10-28 | `f2c3b67` | Documentation aligned to XRPL repository conventions: README Usage and Installation sections, `docs/README.md` as a reader-path index, `py.typed` added (the package was fully annotated but shipped no PEP 561 marker, so type checkers ignored it), and stale test/module counts corrected. |
 
 ---
 
-*This document is a recorded decision; it tracks v0.3.3 (initial), v0.4.0 (expiry blocker resolved), and the v0.5.0 path to mainnet.*
+*This document is a recorded decision; it tracks v0.3.3 (initial), v0.4.0 (expiry blocker resolved), and v0.5.0 (mainnet go — the stress run executed 2026-10-28).*

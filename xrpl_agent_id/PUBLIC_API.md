@@ -115,18 +115,28 @@ without bumping the version; only the top-level names above are pinned.
 
 ## What is NOT in the public API
 
-These names appeared in earlier drafts or internal docs but are **not**
-importable from `xrpl_agent_id`:
+Only the top-level names above are pinned. The following real symbols live in
+submodules and are **not** re-exported at the top level. They are importable
+from their submodule if you need them, but their names and signatures are not
+covered by the compatibility guarantee:
 
-* `BannedAgentRegistry` (removed in v0.3.3 — dead code, never re-exported).
-* `AuthorizationPolicy` (never existed — was a doc typo).
-* `Registry` (duplicate dead-code class, removed in v0.3.3).
-* `Publisher`, `Keypair`, `AcceptancePolicy`, `AuthorizationDecision`,
-  `ReasonCode`, `RequestContext`, `LedgerAuditLog`, `XRPLMirror`, `Journal`,
-  `AuditRecord`, `Ban`, `AgentRecord`, `AgentRegistry` — all internal-only,
-  not re-exported.
-* `provider_from_wallet` — a convenience helper in
-  `xrpl_agent_id.wallet`, not re-exported at the top level.
+| Name | Import from | Why it is not top-level |
+|---|---|---|
+| `AuthorizationPolicy` | `xrpl_agent_id.authorization` | The authorization layer is an opt-in subsystem |
+| `AuthorizationDecision` | `xrpl_agent_id.authorization`, `.audit` | Returned by the policy; use it, don't construct it |
+| `ReasonCode` | `xrpl_agent_id.authorization` | Enum behind `AuthorizationDecision.reasons` |
+| `RequestContext` | `xrpl_agent_id.authorization` | Passed *into* `AuthorizationPolicy.evaluate()` |
+| `AgentRegistry` | `xrpl_agent_id.authorization` | Internal registry implementation |
+| `BannedAgentRegistry` | `xrpl_agent_id.banned` | Ban storage is pluggable |
+| `Ban` | `xrpl_agent_id.banned` | A ban record; construct one and pass it to the registry |
+| `AuditLog` | `xrpl_agent_id.audit` | Audit logging is an opt-in subsystem |
+| `AuditRecord` | `xrpl_agent_id.audit` | Returned by `AuditLog.record()` |
+| `XRPLMirror` | `xrpl_agent_id.audit` | The optional on-chain mirror |
+| `provider_from_wallet` | `xrpl_agent_id.wallet` | Convenience helper for migrating an existing wallet |
+
+Names that appear in older drafts or internal notes but **do not exist in the
+package at all**: `Registry`, `Publisher`, `Keypair`, `AcceptancePolicy`,
+`LedgerAuditLog`, `Journal`, `AgentRecord`.
 
 Use the names listed under "Core types", "DID helpers", "Network helpers",
-"Trust library", and "Version" instead.
+"Trust library", "Wallet providers", "Fee control", and "Version" instead.

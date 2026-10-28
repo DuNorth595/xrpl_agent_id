@@ -34,6 +34,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import os
 import sys
 import time
 from pathlib import Path
@@ -54,7 +55,10 @@ from xrpl_agent_id.network import get_client
 from xrpl_agent_id.tx_submit import submit_with_retry
 
 #: Keychain service holding the mainnet treasury seed.
-KEYCHAIN_SERVICE = "hermes-xrpl-mainnet-stress"
+# The macOS keychain service that holds the treasury seed. Overridable so
+# the value does not have to be published in a public repository -- the
+# service name is a pointer to a secret store.
+KEYCHAIN_SERVICE = os.environ.get("XRPL_STRESS_KEYCHAIN_SERVICE", "xrpl-mainnet-stress")
 
 #: Base reserve per account, in drops (1 XRP). Read off the live ledger.
 RESERVE_BASE_DROPS = 1_000_000

@@ -31,26 +31,32 @@ nothing about protocol-level enforcement of issuer trust.
 
 | | |
 |---|---|
-| Address | `r9wvLo8R7cpWEfZpibSMwxZrTiLFr4d5eK` |
+| Address | `<TREASURY_ADDRESS>` — operator-funded, disposable |
 | Type | Ed25519 classic address |
-| Seed | macOS keychain, service `hermes-xrpl-mainnet-stress` |
-| Metadata | Local secrets dir, `xrpl_mainnet_stress_wallet.json` (public fields only) |
-| Status | Valid, **unfunded** — verified via `account_info` against live mainnet |
+| Seed | macOS keychain (service name deliberately not recorded here) |
+| Metadata | Local secrets directory, outside the repository |
+| Status | Valid, funded, and **run completed 2026-10-28** — see §7 |
 
-The address is public the moment it is funded, so there is no secret
-exposure in writing it here. The seed never leaves the keychain, and the
-keychain service name and local paths are deliberately not recorded in
-this public repository.
+The address, the keychain service name, and local paths are **not** recorded
+in this public repository. The address becomes public the moment it is
+funded, but it identifies a wallet whose key is in the operator's keychain
+and whose remaining balance is real money; there is no reason to publish a
+pointer to it. The seed itself never leaves the keychain.
 
 ## 3. Funding request
 
-**Requested: 20 XRP (~$27 at $1.33/XRP).**
+**Originally requested: 20 XRP (~$27 at $1.33/XRP).**
 
 That covers the **n=6 run — one agent per role** — with headroom, and
 leaves the treasury usable for a larger run if the first pass surfaces
 something.
 Nothing is spent by the funding itself — it sits as account reserve
 until the run begins.
+
+**As funded and as spent:** the operator funded the treasury with
+**70.293600 XRP**, to allow a conservative staged run rather than a single
+attempt. The treasury held **72.126706 XRP** before the staged runs and
+**77.781636 XRP** after cleanup and reclaim. See §8 for the full accounting.
 
 ### 3.1 Budget breakdown (live reserves, verified against mainnet)
 
@@ -91,7 +97,7 @@ Any of these work; the address is a standard mainnet address:
 
 ```bash
 curl -s -X POST https://s1.ripple.com:51234 -H "Content-Type: application/json" \
-  -d '{"method":"account_info","params":[{"account":"r9wvLo8R7cpWEfZpibSMwxZrTiLFr4d5eK"}]}'
+  -d '{"method":"account_info","params":[{"account":"<TREASURY_ADDRESS>"}]}'
 ```
 
 The `actNotFound` error is nested inside `result`, not returned as a
@@ -100,7 +106,7 @@ top-level `error` key:
 
 ```bash
 curl -s -X POST https://s1.ripple.com:51234 -H "Content-Type: application/json" \
-  -d '{"method":"account_info","params":[{"account":"r9wvLo8R7cpWEfZpibSMwxZrTiLFr4d5eK"}]}' \
+  -d '{"method":"account_info","params":[{"account":"<TREASURY_ADDRESS>"}]}' \
 | python3 -c "import json,sys; a=json.load(sys.stdin)['result'].get('account_data'); print('balance:', int(a['balance'])/1e6, 'XRP') if a else print('not funded yet')"
 ```
 
@@ -203,3 +209,69 @@ provenance) was closed by decision on 2026-10-27 in commit `c598974`.
 **Funding this address is the approval to transact on mainnet.** Nothing
 happens until XRP arrives, and the amount sent determines the scope —
 20 XRP buys the n=4 run described here.
+
+---
+
+## 8. Outcome — 2026-10-28
+
+**The run is complete.** The mainnet gate is closed and v0.5.0 is a GO.
+
+**Ledger evidence.** The treasury's public transaction history shows **23
+validated transactions — 14 `Payment` and 9 `AccountDelete`**. Every funded
+account was deleted, and the treasury's `OwnerCount` ended at **0**.
+
+**What was validated.** The credential lifecycle against real mainnet state
+— `DIDSet`, `CredentialCreate`, `CredentialAccept`, `SignerListSet` — and the
+reserve arithmetic in §3.1. The deletion paths (`CredentialDelete`,
+`DIDDelete`, `AccountDelete`) were all exercised and all released their
+reserves as documented.
+
+**What was not validated.** The optional on-chain audit mirror, and the
+`WalletProvider` path against a live KMS. Both remain open.
+
+**Three harness defects were found and fixed.** All three were in the test
+harness; none was a library defect.
+
+1. **A dry run spent 4 XRP.** The mock patched the harness's binding of the
+   submit function but not `xrpl.transaction.submit_and_wait`, which the
+   library calls directly in wallet mode. The dry run reported success while
+   two real 2 XRP Payments had gone out. Two account seeds had not been
+   persisted, so that 4 XRP is **stranded** — unrecoverable, but not taken by
+   anyone either. The harness now patches the source module, installs a
+   raising backstop, and asserts the balance is unchanged before reporting
+   success.
+2. **The budget omitted the treasury's own base reserve.** A treasury
+   funding N accounts needs N+1 XRP of base reserve. The run failed part-way
+   through funding with `tecUNFUNDED_PAYMENT`.
+3. **The budget had no fee headroom.** The computed need was 0.2% short of
+   what the ledger actually required. The fee line now carries a 1.5×
+   multiplier; the reserve figures are exact protocol constants and are not
+   inflated.
+
+The budget function was then validated against the ledger's own record of
+what the run required — computed 9.127 XRP against 9.104 XRP actually needed
+— before any further spend.
+
+**Spend accounting.** See the table in §9.
+
+---
+
+## 9. Spend accounting
+
+| | XRP |
+|---|---|
+| Funded by the operator | 70.293600 |
+| Treasury balance before the staged runs | 72.126706 |
+| Treasury balance after cleanup and reclaim | 77.781636 |
+
+**Fees burned across the whole exercise:** under 1 XRP. The rest of the
+treasury balance is the operator's own funding, still in the treasury.
+
+**Reclaimed:** every account created during the exercise was deleted,
+releasing its base and owner reserves. The first failed attempt's two
+accounts — whose seeds were never persisted — could not be reclaimed; that
+4 XRP is stranded, and is the real cost of defect 1 above.
+
+**Next step.** The treasury holds the operator's funds. It has no job once
+the staged runs finish, so the keychain entry should be discarded when the
+last run completes. See `scripts/reclaim_mainnet_funds.py`.

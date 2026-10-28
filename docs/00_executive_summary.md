@@ -39,7 +39,7 @@ Verifiers query the ledger. They see the credential, the issuer, the timestamp, 
 - **CredentialAccept:** `580B8CD7…243A` (ledger 21123062)
 - **DIDSet:** `A230469E…A3B3` (ledger 21123064)
 
-**Library state:** Full Python package, MIT licensed. **353 tests passing, 6 live integration tests gated behind `RUN_LIVE=1`.** The credential lifecycle was validated against XRPL mainnet on 2026-10-28; the live-gated tests run against XRPL testnet. Ergonomic API: `AgentIdentity.from_seed()`, `issuer.issue_credential()`, `agent.has_credential()`, `resolve_did()`, plus trust library: `TrustRegistry.require()/deny()/check()`.
+**Library state:** Full Python package, MIT licensed. **360 tests passing, 6 live integration tests gated behind `RUN_LIVE=1`.** The credential lifecycle was validated against XRPL mainnet on 2026-10-28; the live-gated tests run against XRPL testnet. Ergonomic API: `AgentIdentity.from_seed()`, `issuer.issue_credential()`, `agent.has_credential()`, `resolve_did()`, plus trust library: `TrustRegistry.require()/deny()/check()`.
 
 ## Why XRPL
 

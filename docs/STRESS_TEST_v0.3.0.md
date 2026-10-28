@@ -152,7 +152,7 @@ ledger's median close time + the retry-backoff for `tefPAST_SEQ`.
 ## 7. Reproduce
 
 ```bash
-cd ~/Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID
+cd <project-root>
 PYTHONPATH=. RUN_LIVE=1 /usr/bin/python3 scripts/stress_harness_live.py \
     --n=6 \
     --dashboard-db=./xrpl_agent_id_dashboard.db \

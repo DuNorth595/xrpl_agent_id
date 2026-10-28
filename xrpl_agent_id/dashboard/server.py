@@ -27,7 +27,7 @@ from urllib.parse import urlparse, parse_qs
 from xrpl_agent_id.dashboard import db
 from xrpl_agent_id.audit import XRPLMirror
 
-DEFAULT_DB = Path.home() / "Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID/xrpl_agent_id_dashboard.db"
+DEFAULT_DB = Path.home() / ".xrpl_agent_id" / "dashboard.db"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8768
 HTML_PATH = Path(__file__).parent / "templates" / "index.html"

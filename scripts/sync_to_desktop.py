@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Justin Douglas
 # SPDX-License-Identifier: MIT
-"""sync_to_desktop.py — Mirror the LIFE_MEMORY project snapshot to ~/Desktop/XRPL_AGENT_ID/<version>/.
+"""sync_to_desktop.py — Archive the project tree to a versioned directory.
 
-The Desktop folder is a complete, self-contained copy of the project at
-each release version. It's meant for offline browsing, sharing, and
-archival — NOT for editing (edit in LIFE_MEMORY, then sync here).
+Creates a complete, self-contained copy of the project at the current
+release version. Intended for offline browsing, sharing, and archival.
 
 Usage:
     python scripts/sync_to_desktop.py [--version 0.1.0] [--readme]
@@ -13,15 +12,15 @@ Usage:
 What it does:
     1. Determines the current project version (from xrpl_agent_id/__init__.py
        or pyproject.toml — __init__.py wins).
-    2. Creates ~/Desktop/XRPL_AGENT_ID/<version>/ if missing.
+    2. Creates <dest>/<version>/ if missing.
     3. Copies the project (excluding .git/, .pytest_cache/, __pycache__,
        testnet_keys/, *.db, *.pdf preview artifacts) into that folder.
     4. Writes a VERSION_NOTES.md with the latest git log + test counts.
-    5. Updates ~/Desktop/XRPL_AGENT_ID/README.md with a "Latest version"
+    5. Updates <dest>/README.md with a "Latest version"
        pointer.
 
 Defaults:
-    --source  ~/Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID
+    --source  the repository root (where this script lives)
     --dest    ~/Desktop/XRPL_AGENT_ID
 """
 
@@ -35,7 +34,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-DEFAULT_SOURCE = Path.home() / "Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID"
+DEFAULT_SOURCE = Path(__file__).resolve().parents[1]
 DEFAULT_DEST = Path.home() / "Desktop/XRPL_AGENT_ID"
 
 # What to copy (relative to source)
@@ -157,7 +156,7 @@ def _write_version_notes(dest: Path, version: str, source: Path) -> None:
 ## What's in this folder
 
 This is a complete snapshot of the `xrpl_agent_id` project at version
-{version}, copied from `~/Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID/`.
+{version}, copied from the project root.
 
 To use:
 ```bash
@@ -166,14 +165,14 @@ pip install -e .
 python -m xrpl_agent_id.dashboard.server --port 8768
 ```
 
-The source of truth lives in LIFE_MEMORY. To refresh this snapshot, run
+The source of truth is the repository. To refresh this snapshot, run
 `sync_to_desktop.py` from inside the project:
 ```bash
-cd ~/Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID
+cd <project-root>
 python scripts/sync_to_desktop.py
 ```
 
-The Desktop copy is **read-only**. Edit the LIFE_MEMORY copy.
+The archived copy is **read-only**. Edit the repository copy.
 """
     notes.write_text(body)
 
@@ -190,7 +189,7 @@ def _update_desktop_readme(dest: Path, version: str, source: Path) -> None:
     body = f"""# xrpl_agent_id — Desktop archive
 
 **Latest version:** v{version}
-**Source:** `~/Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID/`
+**Source:** the project root
 **Last sync:** {today}
 
 This folder holds **complete per-version snapshots** of the `xrpl_agent_id`
@@ -203,23 +202,23 @@ copy to another machine, or archive.
 
 ## How snapshots get here
 
-Run from the LIFE_MEMORY project root:
+Run from the project root:
 ```bash
 python scripts/sync_to_desktop.py
 ```
 
 That reads `xrpl_agent_id.__version__` and copies the current source
-into `~/Desktop/XRPL_AGENT_ID/<version>/`. It also writes
+into `<dest>/<version>/`. It also writes
 `VERSION_NOTES.md` inside the new folder with the current git log and
 test counts.
 
-## How to keep Desktop and LIFE_MEMORY in sync
+## How to keep the archive in sync
 
-The rule is one-way: **LIFE_MEMORY is the source of truth, Desktop is
+The rule is one-way: **the repository is the source of truth, the archive is
 a read-only mirror.**
 
 When you make changes:
-1. Edit files in `~/Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID/`
+1. Edit files in the repository root
 2. Commit to git there
 3. Run `python scripts/sync_to_desktop.py` to refresh Desktop
 
@@ -234,7 +233,7 @@ When you bump the version:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="sync LIFE_MEMORY project to Desktop snapshot")
+    parser = argparse.ArgumentParser(description="archive the project tree to a versioned directory")
     parser.add_argument("--version", default=None,
                         help="version label (default: read from xrpl_agent_id/__init__.py)")
     parser.add_argument("--source", default=str(DEFAULT_SOURCE))

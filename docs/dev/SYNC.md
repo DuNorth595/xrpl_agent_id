@@ -8,7 +8,7 @@ the code does another" issues.
 ## 1. Find every place a version string appears
 
 ```bash
-cd ~/Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID
+cd <project-root>
 grep -rn -E "0\.[0-9]+\.[0-9]+" --include="*.md" --include="*.py" --include="*.toml" \
   --exclude-dir=.git --exclude-dir=.publish-venv --exclude-dir=.install-test \
   --exclude-dir=dist --exclude-dir=build --exclude-dir=__pycache__ \
@@ -89,7 +89,7 @@ importing the wrong module — investigate before tagging.
 Run from **the project root, never from `/tmp` clones**:
 
 ```bash
-cd ~/Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID
+cd <project-root>
 /usr/bin/python3 -m pytest tests/ 2>&1 | tail -5
 ```
 

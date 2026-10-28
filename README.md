@@ -483,7 +483,6 @@ stability contract on each name.
 | `xrpl_agent_id.banned` | `Ban` + `BannedAgentRegistry` — agent deny-list, file-backed | Complete, internal surface |
 | `xrpl_agent_id.registry` | Resolve any DID to its full ledger state | Complete |
 | `xrpl_agent_id.network` | Network constants + client factory | Complete |
-| `xrpl_agent_id.mcp` | MCP server wrapper | **Not implemented** — no `mcp.py` exists |
 
 ### Design decisions
 
@@ -606,11 +605,10 @@ specification; `reuse lint` passes cleanly.
 
 **Author:** Justin Douglas — design, implementation, and stewardship.
 
-**Built with Sam Intelligence** — an AI coding assistant (Hermes Agent, Nous
-Research) that contributed to implementation, documentation, and architecture
-under direct human supervision. All design decisions, specification
-interpretations, and final commits were reviewed and approved by Justin
-Douglas.
+AI assistance: implementation, documentation, and architecture were developed
+with an AI coding assistant (Hermes Agent, Nous Research) under direct human
+supervision. All design decisions, specification interpretations, and commits
+were reviewed and approved by the author.
 
 **Built on the shoulders of:**
 

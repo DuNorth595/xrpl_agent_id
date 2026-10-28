@@ -23,7 +23,7 @@ from pathlib import Path
 from xrpl_agent_id.dashboard import db
 
 DEFAULT_RESULTS = Path(__file__).resolve().parents[2] / "results"
-DEFAULT_DB = Path.home() / "Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID/xrpl_agent_id_dashboard.db"
+DEFAULT_DB = Path.home() / ".xrpl_agent_id" / "dashboard.db"
 
 
 def _now() -> int:

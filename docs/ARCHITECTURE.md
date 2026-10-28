@@ -157,8 +157,11 @@ ledger.
   - account info (`Balance`, `OwnerCount`, `Sequence`)
   - controllers via `AccountObjects type=signer_list` (multi-sig aware)
   - credentials via `AccountObjects type=credential`
-- `AgentRegistry` is a thin read-side facade. Caching is in-memory and
-  unbounded today; per-call refresh is a TODO tracked in `docs/NOTES.md`
+- `AgentRegistry` is a thin read-side facade. Ledger state is cached
+  in-process for the lifetime of the registry, so a registry that lives
+  across many requests should be refreshed explicitly when fresh state
+  matters. Callers that need per-call freshness can construct a registry
+  per request, or read the ledger objects directly via `AccountObjects`.
 
 ### 2.7 `xrpl_agent_id/banned.py`
 
@@ -641,22 +644,19 @@ Both inject:
 Build: `cd <project_root> && /usr/bin/python3 build_pdf.py` (or
 `build_stress_pdf.py`).
 
-### 8.2 Telegram delivery
+### 8.2 Release artifacts
 
-The Telegram Home channel receives the PDFs after each rebuild:
+`docs/00_executive_summary.{md,html,pdf}` is regenerated from the
+Markdown source on each release and is the artifact an institution
+evaluating the project reads first. The HTML is the PDF source, so the
+two are edited together and rebuilt together:
 
 ```bash
-# Send via Hermes Telegram delivery (path depends on your Hermes install)
-python3 ~/.hermes/scripts/send_telegram_document.py \
-    <chat_id> \
-    ~/Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID/xrpl_agent_id_STRESS_v030.pdf
+python3 scripts/build_summary_pdf.py
 ```
 
-### 8.3 Desktop mirror
-
-`scripts/sync_to_desktop.py` copies the project tree to
-`~/Desktop/XRPL_AGENT_ID/<version>/` as a read-only archive. Bumps the
-folder name on every version increment.
+`scripts/sync_to_desktop.py` can copy the project tree to an archive
+directory of your choosing, versioned per release.
 
 ### 8.4 Versioning
 
@@ -728,7 +728,7 @@ RUN_LIVE=1 /usr/bin/python3 scripts/stress_harness_scale.py --n 50 # scale run w
 ## 10. On-disk layout
 
 ```
-~/Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID/
+xrpl_agent_id/
 ├── xrpl_agent_id/                # the library
 │   ├── __init__.py               # public surface, __version__
 │   ├── __main__.py               # CLI entry

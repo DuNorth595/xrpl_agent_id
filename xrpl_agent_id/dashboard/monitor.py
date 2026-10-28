@@ -46,7 +46,7 @@ CREDENTIAL_TX_TYPES = {"CredentialCreate", "CredentialAccept", "CredentialDelete
 ALL_TX_TYPES = IDENTITY_TX_TYPES | CREDENTIAL_TX_TYPES
 
 LOG = logging.getLogger("agent_id_monitor")
-DEFAULT_DB = Path.home() / "Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID/xrpl_agent_id_dashboard.db"
+DEFAULT_DB = Path.home() / ".xrpl_agent_id" / "dashboard.db"
 
 
 # ---------------------------------------------------------------------------

@@ -12,9 +12,7 @@
 
 **Do not file a public GitHub issue for security bugs.**
 
-Email: `S_DevLabs@outlook.com` (PGP not currently configured — cleartext
-accepted for now, switch to a PGP-encrypted channel if you need one and
-I'll add a key). Expect an acknowledgement within 72 hours.
+Email: `S_DevLabs@outlook.com`. Expect an acknowledgement within 72 hours.
 
 Please include:
 - Reproduction steps (a failing test is the best case)
@@ -30,7 +28,7 @@ on the user's behalf, and does not custody keys.
 
 | Asset | Where it lives | What this library does with it |
 |---|---|---|
-| Issuer seed | Operator's machine (or KMS, in v0.5.0) | Uses it to sign `CredentialCreate` transactions via `xrpl-py`. **Never logs it. Never writes it to disk.** |
+| Issuer seed | Operator's machine, or an external HSM/KMS via `WalletProvider` | Uses it to sign `CredentialCreate` transactions via `xrpl-py`. **Never logs it. Never writes it to disk.** |
 | Subject seed | Agent's machine | Uses it to sign `CredentialAccept` and `DIDSet`. **Never logs it. Never writes it to disk.** |
 | DID Document | Public on-ledger | Reads via `ledger_entry`. Writes via `DIDSet` signed by subject. |
 | Credential object | Public on-ledger | Reads via `ledger_entry`. Writes via `CredentialCreate` signed by issuer. |
@@ -81,12 +79,13 @@ on the user's behalf, and does not custody keys.
   `xrpl-py`'s `Wallet.from_seed()`. Library does not introduce a new format.
 - **Hashing:** SHA-256 via `hashlib` for `decision_id` computation. No
   custom hash construction.
-- **No post-quantum crypto.** Plan: revisit if/when XRPL adopts a PQC
-  signing scheme. Not on the v0.5.0 roadmap.
+- **No post-quantum crypto.** The library inherits XRPL's signing scheme
+  and adds no cryptography of its own. Revisit if and when XRPL adopts a
+  PQC scheme.
 
 ## Dependencies
 
-`xrpl_agent_id` has **one runtime dependency** (`xrpl-py>=4.5.0`) and
+`xrpl_agent_id` has **one runtime dependency** (`xrpl-py>=5.0,<6`) and
 two optional dependency groups:
 
 | Extra | What it adds | Why it's optional |
@@ -97,21 +96,34 @@ two optional dependency groups:
 `xrpl-py` is a well-maintained library from the XRP Ledger Foundation.
 We pin a minimum version (`>=4.5.0`) but do not pin the patch version.
 For supply-chain hardening, run `pip-audit` against your installed
-environment; we plan to add this to CI in a future release.
+environment.
 
 ## Known limitations
 
-1. **No KMS / hardware wallet support yet.** v0.5.0 will introduce a
-   `WalletProvider` interface that delegates signing to external HSMs
-   (AWS KMS, YubiHSM, Ledger). Today, seeds live in process memory or
-   the filesystem.
-2. **No signed audit memos yet.** `XRPLMirror.write()` writes plaintext
-   audit memos. Anyone can rewrite a memo (the ledger won't reject it)
-   — the immutability is only "nobody changed the original tx hash",
-   not "this is the canonical audit decision." v0.5.0 will sign
-   `decision_id` with the operator's wallet so verifiers can confirm
-   provenance.
-3. **Live integration tests skip by default.** `tests/test_integration_ledger_live.py`
+1. **No KMS / hardware wallet adapter ships in this package.** v0.5.0
+   provides `WalletProvider` — a structural interface (`classic_address`,
+   `public_key`, `sign(tx)`) — plus `ExternalSignerProvider`, which
+   delegates signing to any callable you supply. Wiring that callable to
+   AWS KMS, YubiHSM, or a Ledger device is application code, and it is
+   yours to write. The provider path is therefore only as trustworthy as
+   the signing function behind it: `ExternalSignerProvider` passes the XRPL
+   signing bytes to your callable and trusts the signature it returns.
+   Note that AWS KMS does not support Ed25519, so a KMS-backed deployment
+   must use secp256k1 and expect an `EC`-prefixed public key.
+2. **Audit memos are forensic, not issuer-attributable.** `XRPLMirror.write()`
+   writes plaintext audit memos. Anyone can rewrite a memo — the ledger
+   will not reject it — so the immutability guarantee is only "nobody
+   changed the original transaction hash," not "this is the canonical
+   audit decision." **The ledger credential entry is the authoritative
+   artifact**; the memo is provenance evidence about it. A relying party
+   that needs issuer-attributable proofs must build that scheme
+   themselves.
+3. **Deposit Authorization is not implemented.** The trust check is a
+   library-side evaluation, not a protocol-level guarantee. The ledger
+   will not enforce your issuer allowlist. A relying party who wants
+   protocol-level enforcement must create their own `DepositPreauth`
+   allowlist.
+4. **Live integration tests skip by default.** `tests/test_integration_ledger_live.py`
    is gated on `RUN_LIVE=1` because it creates real funded wallets on
    the public XRPL testnet. This is intentional — CI doesn't have
    funded testnet wallets. If you fork this library and run those tests

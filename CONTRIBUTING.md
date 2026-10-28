@@ -7,8 +7,8 @@ including bug reports, which are the most valuable kind.
 
 | Path | Purpose |
 |---|---|
-| `xrpl_agent_id/` | the library (15 modules + `dashboard/`) |
-| `tests/` | 22 test modules, 341 offline tests |
+| `xrpl_agent_id/` | the library (13 modules + `dashboard/`) |
+| `tests/` | 22 test modules, 345 offline tests |
 | `docs/` | architecture, changelog, internal session notes |
 | `scripts/check_no_seeds.py` | pre-commit seed scanner — **never disable it** |
 
@@ -24,7 +24,7 @@ pre-commit install
 ## Before you open a pull request
 
 ```bash
-pytest tests/ -q          # must be 341 passed, 6 skipped (the 6 are live-testnet, opt-in)
+pytest tests/ -q          # must be 345 passed, 6 skipped (the 6 are live-testnet, opt-in)
 reuse lint                # must pass — this is enforced in CI
 pre-commit run --all-files
 ```

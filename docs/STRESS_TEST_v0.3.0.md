@@ -448,7 +448,7 @@ the relevant section of the loop in `stress_harness_scale.py::run_scale`.
   ≈ **150 ledger txs** for setup
 - 50 mirror txs (1 drop each + fee)
 - Total mirror cost: 50 × 15 drops ≈ **750 drops ≈ 0.000750 XRP** (~$0)
-- Setup cost: dominated by 12 drops per SignerListSet + CredentialCreate
+- Setup cost: dominated by the per-transaction fee (10 drops base; budget against the ledger median, ~5,000 drops under load) per SignerListSet + CredentialCreate
   fees ≈ another ~1 XRP total (~$0 on testnet)
 
 ### 12.5 What this proves

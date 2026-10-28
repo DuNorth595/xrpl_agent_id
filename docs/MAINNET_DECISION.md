@@ -19,7 +19,7 @@ This document records the go/no-go decision for xrpl_agent_id targeting XRPL **m
 
 | Surface | Mainnet OK now? | Why |
 |---|---|---|
-| DID creation (`DIDSet`) | ✅ yes | Cheap (~12 drops), reversible (`DIDDelete`), no expiry. |
+| DID creation (`DIDSet`) | ✅ yes | Cheap (10 drops base), reversible (`DIDDelete`), no expiry. |
 | Credential issuance (`CredentialCreate`) | ✅ yes | No fee surprises, and **expiry enforcement landed in v0.4.0** (§3). |
 | Credential acceptance (`CredentialAccept`) | ✅ yes | Free, optional opt-in. |
 | Authorization decisions / audit | ✅ forensic only | The **ledger credential entry** is the confirmed artifact. Memos are provenance-verified but **not issuer-attributable** (§4.3). |
@@ -38,36 +38,65 @@ decision. The remaining gap is **on-chain enforcement of issuer trust**
 
 | Operation | Fee | Notes |
 |---|---|---|
-| `DIDSet` | ~12 drops (~0.000012 XRP) | Refundable if `DIDDelete` follows. |
-| `CredentialCreate` | ~12 drops | Non-refundable; goes to fee sink. |
-| `CredentialAccept` | ~12 drops | Non-refundable. |
-| `CredentialDelete` (revoke) | ~12 drops | Issued by either party. |
-| Audit memo (`Payment` with `MemoData`) | ~12 drops | Per `Journal` entry. |
+| `DIDSet` | 10 drops (0.00001 XRP) | Refundable if `DIDDelete` follows. |
+| `CredentialCreate` | 10 drops | Non-refundable; goes to fee sink. |
+| `CredentialAccept` | 10 drops | Non-refundable. |
+| `CredentialDelete` (revoke) | 10 drops | Issued by either party. |
+| Audit memo (`Payment` with `MemoData`) | 10 drops | Per `Journal` entry. |
 
-At ~$2.50/XRP and ~12 drops/tx, **1000 audit memos cost ~0.012 XRP ≈ $0.03**. Trivial in absolute terms. Volume is not the cost issue.
+The **base cost** of a transaction is 10 drops. Actual fees float above it
+with ledger load — the live median at the time of writing was ~5,000
+drops, and the open-ledger fee was ~5,121 drops — so budget against the
+**median**, not the base. The library does not pin a fee; it lets
+`autofill` compute the current value, and it retries on
+`telINSUF_FEE_P`.
 
-### 1.2 Reserve requirements — **this is the real cost**
+At $1.33/XRP and ~5,000 drops/tx, **1,000 audit memos cost ~0.05 XRP ≈
+$0.07**. Trivial in absolute terms. Volume is not the cost issue.
 
-XRPL mainnet requires an **owner reserve** of **2 XRP per owned ledger object**.
+### 1.2 Reserve requirements
+
+XRPL mainnet requires a **base reserve of 1 XRP per account** and an
+**owner reserve increment of 0.2 XRP per owned ledger object**.
+
+> **Corrected 2026-10-27.** This section previously stated 200 XRP base
+> and 2 XRP per object. Those were the **pre-2024** values. Reserves were
+> lowered 10× by validator vote on **2024-12-02** (1 XRP base, 0.2 XRP
+> per object) — see
+> [Lower Reserves Are In Effect](https://xrpl.org/blog/2024/lower-reserves-are-in-effect).
+> The figures below are verified against the live mainnet ledger
+> (`server_info` → `validated_ledger`: `reserve_base_xrp: 1.0`,
+> `reserve_inc_xrp: 0.2`, `base_fee_xrp: 1e-05`, ledger #107,949,783).
 
 For xrpl_agent_id, each agent identity owns:
-- 1 Account (200 XRP base reserve, not a per-object reserve but never recoverable if the account is used)
-- 1 DID ledger object (**+2 XRP**)
-- 0–N Credential ledger objects the agent accepts as subject (**+2 XRP each**)
-- 0–M audit memo `Payment` transactions (not objects, but each burns ~12 drops)
+- 1 Account (**1 XRP** base reserve, recoverable only if the account is
+  deleted)
+- 1 DID ledger object (**+0.2 XRP**)
+- 0–N Credential ledger objects the agent accepts as subject (**+0.2 XRP each**)
+- 0–M audit memo `Payment` transactions (not owned objects, but each
+  burns a transaction fee)
 
 **Concrete example — 1 issuer, 10 agents, 3 credentials each:**
-- 10 × 200 XRP (base) = **2,000 XRP** locked
-- 10 × 2 XRP (DID) = 20 XRP
-- 30 × 2 XRP (credentials) = 60 XRP
-- 30 × 12 drops (acceptance fee) = negligible
-- **Total reserve lockup: ~2,080 XRP** (~$5,200 at $2.50/XRP)
+- 10 × 1 XRP (base) = **10 XRP** locked
+- 10 × 0.2 XRP (DID) = 2 XRP
+- 30 × 0.2 XRP (credentials) = 6 XRP
+- Transaction fees (creation + acceptance) ≈ negligible
+- **Total reserve lockup: ~18 XRP** (~$24 at $1.33/XRP)
 
-For a stress test of 1,000 agents with 3 credentials each, that's **~208,000 XRP locked**. That is not a software cost — it is a treasury cost, and it must be planned.
+**Concrete example — the same shape at scale:** 1,000 agents with 3
+credentials each locks **~1,400 XRP** (~$1,860), not the ~208,000 XRP
+previously stated.
+
+**Minimum cost of one real agent identity** (1 account + 1 DID + 1
+credential, 4 transactions): **~1.4 XRP** (~$1.86).
 
 ### 1.3 Fee conclusion
 
-The library can afford mainnet fees per transaction. The **reserve lockup** is real and must be budgeted by whoever funds the issuer account. Not a blocker — a planning requirement.
+The library can afford mainnet fees per transaction. The **reserve
+lockup** is real and must be budgeted by whoever funds the issuer
+account, but at current reserves it is an order of magnitude cheaper
+than this document previously claimed. Not a blocker — a planning
+requirement.
 
 ---
 

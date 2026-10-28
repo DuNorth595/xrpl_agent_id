@@ -117,7 +117,7 @@ substantive difference.
 | **Can a transaction be gated on it?** | Not natively | Yes — `DepositPreauth` with a credential descriptor |
 | **Lifetime** | Tied to the registry contract's existence | Tied to the account and the ledger |
 | **Revocation** | Registry-dependent | Issuer or subject deletes the `Credential` object |
-| **Cost of the identity itself** | An NFT mint | ~12 drops plus a 2 XRP owner reserve per ledger object |
+| **Cost of the identity itself** | An NFT mint | 10 drops per transaction, plus 0.2 XRP owner reserve per ledger object |
 | **Ecosystem** | Ethereum + 14 chains, large | XRPL mainnet, smaller |
 
 The short version: **ERC-8004 gives you a transferable token. XRPL gives you a
@@ -255,17 +255,24 @@ an oversight.
 
 | Surface | Mainnet OK? | Why |
 |---|---|---|
-| DID creation (`DIDSet`) | Yes | ~12 drops, reversible via `DIDDelete`, no expiry |
-| Credential issuance (`CredentialCreate`) | Conditional | No library-level expiry enforcement yet |
+| DID creation (`DIDSet`) | Yes | 10 drops base, reversible via `DIDDelete`, no expiry |
+| Credential issuance (`CredentialCreate`) | Yes | Expiry enforcement shipped in v0.4.0 — `CREDENTIAL_EXPIRED` is emitted for an expired credential |
 | Credential acceptance (`CredentialAccept`) | Yes | Free, optional opt-in |
-| Authorization decisions / audit | Conditional | The library works; the on-chain mirror is not attributable (unsigned memo) |
+| Authorization decisions / audit | Forensic only | The **ledger credential entry** is the confirmed artifact; the audit memo is provenance-verified but **not attributable to the issuer** |
 | Dashboard `/api/verify` | Yes | Read-only; queries the ledger only |
 
-Two cost facts worth knowing before you plan an XRPL deployment: the owner
-reserve is **2 XRP per owned ledger object**, and each accepted credential is
-an owned object. A single issuer with ten agents holding three credentials
-each holds roughly thirty objects — about 60 XRP of reserve, never refunded
-while the objects exist.
+Two cost facts worth knowing before you plan an XRPL deployment: mainnet
+requires a **1 XRP base reserve per account** and a **0.2 XRP owner reserve
+per owned ledger object** (lowered 10× by validator vote in December 2024),
+and each accepted credential is an owned object. A single issuer with ten
+agents holding three credentials each locks roughly **18 XRP** of reserve,
+never refunded while the objects exist. One real agent identity — account,
+DID, and one credential — costs about **1.4 XRP**.
+
+A note on what this library does *not* do: it does **not** implement
+`DepositPreauth`, so its trust check is a library-side evaluation rather
+than a protocol-level guarantee. A relying party who wants the ledger to
+enforce issuer trust must create their own `DepositPreauth` allowlist.
 
 The full reasoning, written before any mainnet transaction, is in
 [`docs/MAINNET_DECISION.md`](docs/MAINNET_DECISION.md).

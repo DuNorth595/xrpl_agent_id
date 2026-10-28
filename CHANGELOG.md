@@ -32,6 +32,20 @@ track are described below; the `WalletProvider` interface and the
   *Migration:* upgrade to Python 3.10 or newer and reinstall. No code changes
   are required — the package's own API is unchanged by this release.
 
+### Fixed
+- **Mainnet reserve and fee figures were stale by ~100x.** `docs/MAINNET_DECISION.md`
+  §1 and the README stated a 200 XRP base reserve and 2 XRP per owned ledger
+  object. Those were the pre-2024 values. Reserves were lowered 10x by validator
+  vote on 2024-12-02 to **1 XRP base / 0.2 XRP per object** (see
+  [Lower Reserves Are In Effect](https://xrpl.org/blog/2024/lower-reserves-are-in-effect)).
+  Figures are now verified against the live mainnet ledger via `server_info`
+  (`reserve_base_xrp: 1.0`, `reserve_inc_xrp: 0.2`, `base_fee_xrp: 1e-05`).
+  The per-transaction cost is quoted as **10 drops base** with a note to budget
+  against the ledger median rather than the base. A one-agent identity costs
+  ~1.4 XRP, not the ~2,080 XRP the old numbers implied for a ten-agent
+  deployment. `MAINNET_READINESS_AUDIT_2026-10-27.md` §1.2 is corrected too --
+  it had asserted the old figure was a protocol constant.
+
 ### Added
 - **`on_chain_proof.signer`** — the dashboard's `/api/verify` now names the
   account that signed the transaction carrying the memo, so the response is

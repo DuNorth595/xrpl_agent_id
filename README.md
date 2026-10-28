@@ -96,6 +96,49 @@ assert agent.has_credential(
 
 ---
 
+
+## Runnable examples
+
+Three scripts in [`examples/`](examples/). Each prints what it did and what
+to do next.
+
+```bash
+pip install xrpl-agent-id
+python examples/01_create_did.py
+```
+
+| Script | What it shows | Needs a funded wallet? |
+|---|---|---|
+| [`01_create_did.py`](examples/01_create_did.py) | Derive a `did:xrpl` and resolve it | No |
+| [`02_publish_did_set.py`](examples/02_publish_did_set.py) | Publish a DIDSet, then resolve the DID | Yes |
+| [`03_authorization_decision.py`](examples/03_authorization_decision.py) | Allow/deny decisions with reason codes | No |
+
+`01` and `03` run immediately against XRPL testnet with no setup.
+
+## Use it from an AI agent (MCP)
+
+[`xrpl_did_mcp`](https://github.com/DuNorth595/xrpl_did_mcp) exposes these
+operations to any MCP client — Claude Desktop, Claude Code, or anything else
+that speaks the protocol.
+
+```bash
+pip install xrpl-did-mcp
+```
+
+```json
+{
+  "mcpServers": {
+    "xrpl-did": {
+      "command": "xrpl-did-mcp",
+      "env": { "XRPL_MCP_NETWORK": "testnet" }
+    }
+  }
+}
+```
+
+Five tools: `derive_did`, `resolve_did`, `check_authorization`,
+`ledger_lookup`, and `publish_did_set`. Four are read-only.
+
 ## Usage
 
 Three things you do with this library. All three are two ledger
@@ -652,6 +695,7 @@ standards (XLS-40d, XLS-70) — public-domain spec text.
 
 ## Related projects
 
+- [`xrpl_did_mcp`](https://github.com/DuNorth595/xrpl_did_mcp) — MCP server exposing this library to any AI agent client: derive, resolve, and authorize identities over the ledger
 - [`xrpl_agent_log`](https://github.com/DuNorth595/xrpl_agent_log) — companion library: tamper-evident agent history. `SigningPair.from_identities()` takes two `AgentIdentity` objects and reads their DIDs directly, so an identity here and a log entry there need no glue code on XRPL
 - [`xrpl-py`](https://github.com/XRPLF/xrpl-py) — the Python client this wraps
 - [`agent-intent/verifiable-intent`](https://github.com/agent-intent/verifiable-intent) — chain-agnostic agent authorization spec

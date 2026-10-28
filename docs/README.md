@@ -5,6 +5,7 @@
 | If you want to… | Read |
 |---|---|
 | **Get it running** | [`QUICKSTART.md`](QUICKSTART.md) — a working agent in under five minutes |
+| **Run working code** | [`../examples/`](../examples/) — three runnable scripts: derive a DID, publish one, check authorization |
 | **Understand the model** | [`ARCHITECTURE.md`](ARCHITECTURE.md) — DIDs, credentials, authorization, submission path |
 | **See what it's for** | [`USE_CASES.md`](USE_CASES.md) — five concrete scenarios |
 | **Read the API contract** | [`xrpl_agent_id/PUBLIC_API.md`](../xrpl_agent_id/PUBLIC_API.md) — every public name and its stability policy |

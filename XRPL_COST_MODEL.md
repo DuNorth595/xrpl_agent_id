@@ -66,6 +66,72 @@ and the DID — **not** the credential's 0.2 XRP.
 
 ---
 
+## 1.3 What actually costs money — the four layers
+
+This is the question a counterparty asks first: *"why would there be a
+fee for agent ID?"* The honest answer is that **almost nothing does**,
+and the cost has to be attributed to the right layer.
+
+### Layer 1 — The hot path: authorize a request
+
+| | Cost |
+|---|---|
+| `AuthorizationPolicy.evaluate()` | pure Python + SQLite read — **$0.00** |
+| `TrustRegistry.check()` | XRPL **read** (free) + local cache — **$0.00** |
+
+**Authorizing a million requests costs nothing.** No transaction, no
+fee, no XRPL write. XRPL reads are free — you pay for *consensus* (a
+ledger write), not for bandwidth. A counterparty can run agent ID
+entirely off-chain for the authorization path and only touch the ledger
+when establishing or revoking trust.
+
+### Layer 2 — The cold path: establish an identity
+
+| Transaction | Required? |
+|---|---|
+| `CredentialCreate` (issuer) | **yes** — this is the attestation |
+| `CredentialAccept` (subject) | yes — the subject's consent |
+| `DIDSet` | **no** — XLS-70 makes it *recommended*, not required |
+| `CredentialDelete` (revoke) | yes — but it replaces a revoke you'd need anyway |
+
+**Two transactions, once.** At the base fee: **0.00002 XRP
+(~$0.0000266)**. At the median fee: **0.01 XRP (~$0.0133)**. Plus
+**1.2 XRP of recoverable reserve** — parked, not spent.
+
+### Layer 3 — The optional layer: audit anchoring
+
+| Path | Cost | Paid by |
+|---|---|---|
+| Every decision → SQLite | **$0.00** (this is the default) | — |
+| `mirror_on_deny_only` → 1 tx per **denial** | 1 tx — attacker-reachable | **the operator** |
+| `anchor_batch()` → 1 tx per 1,000 decisions | 1 tx / 1,000 | the operator |
+
+**Who pays matters.** The audit mirror has its **own key** — it is
+deliberately separate from the issuer's — so the on-chain audit cost is
+the *operator's*, not the counterparty's. A counterparty whose agent is
+denied pays **$0.00**; it never signs a transaction because of a denial.
+
+That is the right allocation, and it is why the denial-path griefing
+vector (§5.2) is an *operator* problem to solve rather than a tax on
+the ecosystem.
+
+### Layer 4 — The agent's actual work
+
+The agent doing its job — paying, swapping, whatever — pays XRPL fees
+**anyway**. That is the cost of using XRPL, not the cost of agent ID.
+It should not appear in the agent-ID line item.
+
+### The summary a counterparty wants
+
+> **Establishing trust costs two transactions and ~0.00002 XRP. Using
+> that trust to authorize requests costs nothing. The on-chain audit
+> trail is optional and, batched, costs one transaction per 1,000
+> decisions.**
+
+**The fee is a one-time setup cost, not a per-request tax.** A
+per-request fee would be the thing nobody would touch — and it is not
+what this library does.
+
 ## 2. The fee model
 
 ### 2.1 Live mainnet fee levels (2026-10-28)

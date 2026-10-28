@@ -284,7 +284,11 @@ def test_verify_tx_hash_match_with_mirrored_tx_fallback() -> None:
     memo_hex = _memo_hex_for(decision)
     # Mock the network fetch so we don't actually hit XRPL
     from unittest.mock import patch
-    with patch.object(srv, "_fetch_memo_from_tx", return_value=memo_hex):
+    # The fetch returns (memo_hex, signer) -- the signer is the account
+    # whose key signed the transaction carrying the memo.
+    with patch.object(
+        srv, "_fetch_memo_from_tx", return_value=(memo_hex, "rMirrorSignerAddress")
+    ):
         try:
             payload, status = srv.api_verify(
                 conn, memo_hex=None, tx_hash="LEGACY_TX", network="testnet",
@@ -295,6 +299,9 @@ def test_verify_tx_hash_match_with_mirrored_tx_fallback() -> None:
             assert payload["decision_id"] == did
             assert payload["on_chain_proof"]["tx_hash"] == "LEGACY_TX"
             assert payload["on_chain_proof"]["network"] == "testnet"
+            # The response names who signed the memo, so it is
+            # self-contained -- no need to open the explorer to find out.
+            assert payload["on_chain_proof"]["signer"] == "rMirrorSignerAddress"
         finally:
             conn.close()
             tmp.cleanup()
@@ -379,3 +386,89 @@ if __name__ == "__main__":
     test_verify_tx_hash_match_with_mirrored_tx_fallback()
     test_verify_endpoint_over_http()
     print("\nAll /api/verify tests passed.")
+
+
+# -----------------------------------------------------------------------
+# _fetch_memo_from_tx -- signer extraction
+# -----------------------------------------------------------------------
+
+
+class _FakeResp:
+    def __init__(self, result):
+        self.result = result
+
+
+def test_fetch_memo_returns_signer(monkeypatch) -> None:
+    """The fetch returns (memo_hex, signer) -- the account that signed.
+
+    The signer is the AUDIT KEY, not the credential issuer: the mirror
+    deliberately runs on its own key so the issuer's key stays out of a
+    high-volume logging path. Recording it makes the verify response
+    self-contained.
+    """
+    from unittest.mock import patch
+
+    fake_result = {
+        "tx_json": {
+            "Account": "rMirrorSignerAddress",
+            "Memos": [{"Memo": {"MemoData": "ABCD", "MemoFormat": "EF"}}],
+        }
+    }
+
+    class _FakeClient:
+        def __init__(self, url):
+            self.url = url
+
+        def request(self, req):
+            return _FakeResp(fake_result)
+
+    monkeypatch.setattr("xrpl.clients.JsonRpcClient", _FakeClient)
+
+    memo_hex, signer = srv._fetch_memo_from_tx("HASH", "testnet")
+    assert memo_hex == "ABCD"
+    assert signer == "rMirrorSignerAddress"
+
+
+def test_fetch_memo_without_signer_is_none(monkeypatch) -> None:
+    """A tx with no Account field yields signer=None, not an exception.
+
+    The proof is still valid -- the memo was fetched from the chain -- so
+    the response should carry the rest of the provenance and simply not
+    name a signer.
+    """
+    from unittest.mock import patch
+
+    fake_result = {
+        "tx_json": {
+            "Memos": [{"Memo": {"MemoData": "ABCD"}}],
+        }
+    }
+
+    class _FakeClient:
+        def __init__(self, url):
+            self.url = url
+
+        def request(self, req):
+            return _FakeResp(fake_result)
+
+    monkeypatch.setattr("xrpl.clients.JsonRpcClient", _FakeClient)
+
+    memo_hex, signer = srv._fetch_memo_from_tx("HASH", "testnet")
+    assert memo_hex == "ABCD"
+    assert signer is None
+
+
+def test_fetch_memo_no_memos_returns_none_pair(monkeypatch) -> None:
+    """A tx with no memos returns (None, None) -- no memo to prove."""
+    from unittest.mock import patch
+
+    class _FakeClient:
+        def __init__(self, url):
+            self.url = url
+
+        def request(self, req):
+            return _FakeResp({"tx_json": {"Account": "rSomeone"}})
+
+    monkeypatch.setattr("xrpl.clients.JsonRpcClient", _FakeClient)
+
+    assert srv._fetch_memo_from_tx("HASH", "testnet") == (None, None)

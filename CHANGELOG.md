@@ -33,6 +33,17 @@ track are described below; the `WalletProvider` interface and the
   are required — the package's own API is unchanged by this release.
 
 ### Added
+- **`on_chain_proof.signer`** — the dashboard's `/api/verify` now names the
+  account that signed the transaction carrying the memo, so the response is
+  self-contained and a reviewer does not have to open the explorer to find
+  out who produced it. `_fetch_memo_from_tx` returns `(memo_hex, signer)`.
+
+  The signer is the **audit mirror key**, not the credential issuer: the
+  mirror deliberately runs on its own key so the issuer's key stays out of
+  a high-volume logging path. A memo proves audit-service provenance, not
+  issuer intent.
+
+### Added
 - **`WalletProvider` — a pluggable signer for XRPL transactions.** New public
   names: `WalletProvider` (the protocol), `SeedWalletProvider` (wraps an
   in-process `xrpl.wallet.Wallet`), and `ExternalSignerProvider` (delegates to

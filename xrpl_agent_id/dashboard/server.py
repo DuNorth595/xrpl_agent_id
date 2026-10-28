@@ -367,12 +367,23 @@ def _format_decision_row(row: sqlite3.Row) -> dict:
     return out
 
 
-def _fetch_memo_from_tx(tx_hash: str, network: str) -> str | None:
-    """Fetch a tx from XRPL and return the MemoData hex of its first memo.
+def _fetch_memo_from_tx(tx_hash: str, network: str) -> tuple[str | None, str | None]:
+    """Fetch a tx from XRPL; return (MemoData hex, signer address).
 
-    Returns None if the tx doesn't exist, has no memos, or the network is
-    unknown. Raises xrpl XRPLException subclasses on transient RPC errors
-    so the caller can surface them as 502.
+    The signer is the account that sent the transaction -- the key that
+    actually signed the memo. Recording it means the verify response is
+    self-contained: a reviewer sees WHICH key produced this memo without
+    having to open the explorer.
+
+    Returns (None, None) if the tx doesn't exist or has no memos, and
+    (None, None) if the network is unknown. Raises xrpl XRPLException
+    subclasses on transient RPC errors so the caller can surface them as
+    502.
+
+    Note the signer is the MIRROR key, not the issuer. The audit mirror
+    deliberately runs on its own key so the issuer's key stays out of a
+    high-volume logging path. A memo proves audit-service provenance, not
+    issuer intent.
     """
     from xrpl.clients import JsonRpcClient
     from xrpl.models.requests import Tx
@@ -384,11 +395,17 @@ def _fetch_memo_from_tx(tx_hash: str, network: str) -> str | None:
     resp = client.request(Tx(transaction=tx_hash, binary=False))
     tx = resp.result
     if not tx:
-        return None
-    memos = (tx.get("tx_json") or {}).get("Memos") or []
+        return None, None
+    tx_json = tx.get("tx_json") or {}
+    memos = tx_json.get("Memos") or []
     if not memos:
-        return None
-    return (memos[0].get("Memo") or {}).get("MemoData")
+        return None, None
+    memo_hex = (memos[0].get("Memo") or {}).get("MemoData")
+    # "Account" is the sender of the transaction -- the account whose key
+    # signed it. For a multi-signed account the full signing history is in
+    # "signers", but the sending account is the accountable party.
+    signer = tx_json.get("Account")
+    return memo_hex, signer
 
 
 def api_verify(
@@ -438,7 +455,7 @@ def api_verify(
     else:
         assert tx_hash is not None
         try:
-            memo_data_hex = _fetch_memo_from_tx(tx_hash, network)
+            memo_data_hex, signer = _fetch_memo_from_tx(tx_hash, network)
         except ValueError as e:
             return {"error": str(e)}, 400
         # xrpl raises ResponseException for txnNotFound; surface as 404.
@@ -456,6 +473,11 @@ def api_verify(
         on_chain_proof = {
             "tx_hash": tx_hash,
             "network": network,
+            # Which account signed the transaction carrying this memo.
+            # This is the AUDIT KEY, not the credential issuer -- the
+            # mirror deliberately runs on its own key. Recorded so the
+            # response names its signer without needing the explorer.
+            "signer": signer,
             "explorer_url": (
                 f"https://testnet.xrpl.org/transactions/{tx_hash}"
                 if network == "testnet"

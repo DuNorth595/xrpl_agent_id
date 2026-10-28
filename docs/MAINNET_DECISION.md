@@ -1,7 +1,13 @@
-# Mainnet Decision — v0.3.3 / v0.4.0 (last updated 2026-09-30)
+# Mainnet Decision — v0.3.3 / v0.4.0 / v0.5.0 (last updated 2026-10-27)
 
-**Status:** ⛔ **NO-GO for mainnet** in v0.3.x.
-**Earliest realistic mainnet target:** v0.5.0, contingent on the blockers below.
+**Status:** ⛔ **NO-GO for mainnet** in v0.3.x / v0.4.x.
+**Current target:** v0.5.0. As of 2026-10-27, **two of the three code blockers are closed**
+(§3 expiry — shipped in v0.4.0; §4 audit-memo provenance — closed by decision,
+§4). What remains is the mainnet stress run (§5) plus the operator decisions in §6.
+
+**One caveat to read before relying on this library:** it does not implement Deposit
+Authorization, so its trust check is a **library-side evaluation, not a
+protocol-level guarantee**. See §4.5.
 
 This document records the go/no-go decision for xrpl_agent_id targeting XRPL **mainnet** (network ID `1`, `xrplcluster.com`). It is written before any mainnet transaction so the reasoning is on record — not after.
 
@@ -14,12 +20,15 @@ This document records the go/no-go decision for xrpl_agent_id targeting XRPL **m
 | Surface | Mainnet OK now? | Why |
 |---|---|---|
 | DID creation (`DIDSet`) | ✅ yes | Cheap (~12 drops), reversible (`DIDDelete`), no expiry. |
-| Credential issuance (`CredentialCreate`) | ⚠️ conditional | No fee surprises, but **no library-level expiry enforcement** (see §3). |
+| Credential issuance (`CredentialCreate`) | ✅ yes | No fee surprises, and **expiry enforcement landed in v0.4.0** (§3). |
 | Credential acceptance (`CredentialAccept`) | ✅ yes | Free, optional opt-in. |
-| Authorization decisions / audit | ⚠️ conditional | Library works; **Memos are not signed** — anyone can post a matching memo (see §4). |
-| Dashboard `/api/verify` | ✅ read-only | Doesn't sign anything; queries ledger only. |
+| Authorization decisions / audit | ✅ forensic only | The **ledger credential entry** is the confirmed artifact. Memos are provenance-verified but **not issuer-attributable** (§4.3). |
+| Dashboard `/api/verify` | ✅ read-only | Doesn't sign anything; queries ledger only. Returns `verified: true` **only** for a memo fetched from a transaction, and names its signer. |
 
-**Recommendation:** **testnet-only until v0.5.0.** The library's identity layer is safe; its trust-layer semantics need work before mainnet-issued credentials should be relied on.
+**Recommendation:** **testnet-only until the v0.5.0 stress run (§5) is done.** The identity
+layer is sound, expiry is enforced, and the audit-memo question is closed by
+decision. The remaining gap is **on-chain enforcement of issuer trust**
+(§4.5) and the operator decisions in §6 — not library correctness.
 
 ---
 
@@ -85,6 +94,14 @@ The library accepts a **plaintext family seed** in-process. The seed is held in 
 
 ### 2.3 Custody conclusion
 
+> **Update (2026-10-27):** the `WalletProvider` interface referenced here as
+> deferred has now shipped in v0.5.0 (`3fdcf4f`, `2be313c`). A
+> `SeedWalletProvider` wraps an in-process wallet; an
+> `ExternalSignerProvider` delegates signing to a KMS, HSM, or hardware
+> wallet so the key never enters the process. A concrete vendor adapter
+> (AWS/GCP/Azure) is v0.6.0 — note AWS KMS does not support Ed25519, so
+> secp256k1 is the viable path.
+
 For a **single-issuer, single-operator** v0.3.x deployment on mainnet, custody is a **process problem**, not a library problem: keep the seed in a password manager, never commit, never log, kill the process between runs. That is what the docs say.
 
 For a **multi-issuer, multi-credential-type** deployment — the realistic hackathon-aftermath use case — the library **needs**:
@@ -96,7 +113,7 @@ For a **multi-issuer, multi-credential-type** deployment — the realistic hacka
 
 ---
 
-## 3. XLS-70 credential expiry — **library gap**
+## 3. XLS-70 credential expiry — **library gap (RESOLVED in v0.4.0)**
 
 ### 3.1 What XLS-70 supports
 
@@ -118,41 +135,142 @@ $ grep -rn "expir" xrpl_agent_id/authorization.py
 
 ### 3.3 Mainnet implication
 
+> **RESOLVED in v0.4.0 (2026-09-30).** The text below records the gap as
+> it was found. `AuthorizationPolicy.evaluate` now emits a
+> `CREDENTIAL_EXPIRED` reason when a required credential's `expiration`
+> is in the past, gated by `tests/test_authorization.py::TestCredentialExpiry`.
+
 Issuing a credential with an `expiration` on mainnet today provides **no security guarantee**. The trust policy says "credential X required" but the policy never checks "credential X is still valid." A relying party that trusts the library's `satisfied=True` result is being lied to.
 
 **Blocker for mainnet.** Fix in v0.4.0, gated by a new test in `tests/test_authorization.py`.
 
 ---
 
-## 4. Replay-attack resistance
+## 4. Audit-memo provenance — **decision, 2026-10-27**
 
-### 4.1 Issuance replay
+**Status: CLOSED by decision.** No code change required. This section
+records what the library promises, so a relying party knows exactly what
+it can and cannot rely on.
 
-`CredentialCreate` is keyed by `(issuer, subject, credential_type)`. The ledger allows **only one** credential per triple — reissuing with different `URI` or `expiration` updates the existing entry.
+### 4.1 The decision
 
-**However**, the library treats the issuance event as recorded in the **on-chain audit memo** (`Payment` with `app = xrpl_agent_id_audit`). An attacker who knows the `decision_id` could submit a memo with a duplicate `decision_id` to confuse the audit log. The library's audit log dedup is **best-effort by `decision_id`** but `decision_id` is a UUID, so collision is not the issue — **the issue is that memos are unsigned**.
+> **The ledger `Credential` entry is the confirmed, auditable artifact.
+> The audit memo is a forensic record — provenance-verified, but not
+> attributable to the issuer, and not evidence of issuer intent.**
 
-### 4.2 What memos actually prove
+### 4.2 Why the ledger credential entry is the source of truth
 
-A `MemoData` field on a `Payment` transaction proves:
-- **Someone** with the issuer's key signed a transaction containing this data.
-- The data was committed to the ledger.
+The `Credential` ledger object records `Issuer`, `Subject`,
+`CredentialType`, `Expiration`, `URI`, and the `lsfAccepted` flag
+(XLS-70d §2.1). Its issuer attribution is **cryptographic, not a
+claim**: `CredentialCreate` is signed by the issuer's account, and the
+ledger verifies that signature. The object ID is a hash over `Subject` +
+`Issuer` + `CredentialType`, so the issuer cannot be swapped without
+changing the object's identity.
 
-It does **not** prove:
-- That the issuer's library code generated the memo (a compromised dependency could).
-- That the `decision_id` corresponds to a real `AuthorizationDecision` (the library could be bypassed).
+A third party can therefore verify, using the public ledger and without
+this library:
 
-### 4.3 Mainnet implication
+1. **Who** issued the credential — the `Issuer` field, backed by the
+   transaction signature.
+2. **What** it attests — the `CredentialType`.
+3. **Whether the subject accepted it** — the `lsfAccepted` flag.
+4. **Whether it has expired** — the `Expiration` field.
+5. **Who is permitted to rely on that issuer** — the relying party's own
+   allowlist (see §4.5).
 
-The on-chain audit log is a **corroboration** signal, not a proof. For a high-stakes reliance ("X is authorized to do Y"), the audit memo is a tiebreaker, not primary evidence. **Don't sell it as more than that.**
+### 4.3 What the audit memo is, and what it is not
 
-For mainnet, recommend: rely on the **ledger credential entry itself** as the source of truth, not the audit memo. Memos are for transparency and forensics.
+The audit memo is a `MemoData` field on a 1-drop `Payment` transaction
+(`app = xrpl_agent_id_audit`). It records a **decision event** — that a
+request was evaluated, its outcome, and when — which the credential
+entry does not record at all.
+
+It **is** verifiable as to provenance:
+
+- The transaction is on the ledger, immutable and timestamped.
+- The signing account is recorded on-chain (`Account`, `SigningPubKey`,
+  `TxnSignature`), so **you can validate who signed it**. The verify
+  endpoint returns that address in `on_chain_proof.signer`.
+- `on_chain_proof` is only populated when the memo was *fetched from a
+  transaction*. A pasted blob does not establish provenance, and the
+  endpoint returns `verified: false` for that path, with the reason
+  stated.
+
+It **is not**:
+
+- **Attributable to the issuer.** The memo is signed by the **audit
+  mirror key**, which is deliberately a separate key from the issuer's,
+  so the issuer's key stays out of a high-volume logging path. A memo
+  proves *the audit service recorded this*, not *the issuer decided
+  this*.
+- **Proof that a real evaluation happened.** `decision_id` is an
+  **unsalted SHA-256** over the decision's public fields. Anyone who can
+  read a decision can recompute its id and submit their own memo
+  carrying the same id. The library's own `/api/verify` handles this:
+  it flags a memo that contradicts the stored record, and refuses to
+  call an unanchored memo verified.
+- **Issuer intent.** A memo says a decision was logged. It does not say
+  the issuer's policy engine produced it, and it does not say what the
+  request was (the request context is not in the memo payload).
+
+**Do not use the memo as evidence that the issuer authorized something.**
+Use the credential entry.
+
+### 4.4 What this closes
+
+The §4 replay concern — a third party submitting a duplicate `decision_id`
+to confuse the audit log — is **not** a blocker under this decision,
+because the audit log is not the authoritative record. A forged memo can
+add noise to a forensic log; it cannot create, alter, or revoke a
+credential, and it cannot satisfy a relying party who checks the ledger.
+
+This was the framing that needed closing, not a signature scheme.
+
+### 4.5 The gap this decision does NOT close — on-chain enforcement
+
+**This library does not implement Deposit Authorization.** The XLS-70
+standard extends `DepositPreauth` so an account can allowlist *accounts
+holding specific credentials*, not just specific accounts. The library
+does not create `DepositPreauth` objects (there is no reference to
+`DepositPreauth` or `DepositAuth` anywhere in it).
+
+Consequences, stated plainly:
+
+- `TrustRegistry.check()` is a **library-side evaluation**. It reads the
+  ledger and decides in Python. A counterparty who does not use this
+  library is not bound by its result.
+- The **protocol-level** enforcement of issuer trust is the relying
+  party's own `DepositPreauth` allowlist, and a counterparty that wants
+  that guarantee must create one.
+
+**A relying party who assumes this library's check is enforced at the
+protocol level is worse off than one who has no library at all** — the
+first believes they are protected and is not. This is the single most
+important thing to communicate to a counterparty.
+
+### 4.6 Key-management caveat
+
+The memo's provenance is only as good as the **audit mirror key's**
+hygiene. It is a key that signs a high-volume stream; if it is
+compromised, the forensic log can be forged wholesale. Since v0.5.0 the
+`WalletProvider` interface exists to put that key in a KMS or hardware
+wallet rather than in process. **That is a key-management decision for
+the operator, not a library change.**
+
+### 4.7 Follow-ups this decision defers (not blockers)
+
+- A real KMS/HSM adapter (`AwsKmsWalletProvider` et al.) — v0.6.0.
+  Note AWS KMS does not support Ed25519; secp256k1 is the viable path.
+- Optional issuer-signed decision proofs, if a counterparty needs
+  decision-level attribution rather than grant-level attestation. Not
+  required under this decision.
 
 ---
 
 ## 5. Recommendation — staged rollout
 
-### v0.3.3 (now) — testnet only
+### v0.3.3 (shipped) — testnet only
 - ✅ Ship `xrpl_agent_id 0.3.3` to GitHub as testnet-only.
 - ✅ README states "**this library targets testnet. Mainnet is not supported in v0.3.x.**"
 - ✅ Dashboard defaults to `network=testnet`; mainnet URL must be explicit.
@@ -165,17 +283,34 @@ For mainnet, recommend: rely on the **ledger credential entry itself** as the so
 - ✅ Added `tests/test_authorization.py::TestCredentialExpiry` — 6 new hermetic tests.
 - ✅ Bumped to `xrpl_agent_id 0.4.0`. Public GitHub tip `3ba4b13`. GitHub-only release
   (no PyPI publish planned; install from source via `pip install -e ".[dev,mcp]"`).
-- ⏭ `WalletProvider` interface (deferred to v0.5.0).
+- ✅ `WalletProvider` interface — shipped in v0.5.0 (`2be313c`). A live KMS/HSM
+  adapter remains v0.6.0.
 - ⏭ Document reserve lockup costs in README (deferred — §1.2 numbers still hold).
 
 **Status update (2026-09-30):** §3 blocker resolved. Remaining path to mainnet is §2
 (KMS / hardware wallet) and §4 (signed audit memos). Both target v0.5.0.
 
-### v0.5.0 — mainnet go
-- ⏭ Hardware-wallet / KMS-backed `WalletProvider`.
-- ⏭ Audit-log integrity proofs (signed decision_id, not just memo).
-- ⏭ Stress run on **mainnet** with a capped treasury (e.g., 100 XRP) to validate reserve math in practice.
-- ⏭ SECURITY.md published with seed-handling threat model.
+### v0.5.0 — mainnet go (in progress, 2026-10-27)
+- ✅ **`WalletProvider` interface** — shipped. `classic_address` /
+  `public_key` / `sign(tx)`, structural so any object with those members
+  satisfies it. `SeedWalletProvider` (in-process, current behaviour) and
+  `ExternalSignerProvider` (delegates to a signing callable) both ship.
+  **A live KMS/HSM adapter is v0.6.0** — AWS KMS does not support
+  Ed25519, so secp256k1 is the viable path.
+- ✅ **Audit-log integrity** — closed **by decision** (§4), not by
+  signing. The ledger credential entry is the confirmed artifact; the
+  memo is forensic. The verify endpoint now names the memo's signer and
+  only reports `verified: true` for a memo fetched from a transaction.
+  Optional issuer-signed decision proofs are a v0.6.0+ feature, not a
+  blocker.
+- ✅ **SECURITY.md** with a seed-handling threat model — published.
+- ⏭ **Stress run on mainnet** with a capped treasury (e.g., 100 XRP) to
+  validate reserve math in practice. **Requires operator funding and
+  explicit approval.**
+- ⚠️ **Deposit Authorization is not implemented** (§4.5). The library's
+  trust check is a library-side evaluation. A relying party who wants
+  protocol-level enforcement must create their own `DepositPreauth`
+  allowlist.
 - ~~PyPI publish~~ — **not planned.** Library installs from source; no PyPI account available.
 
 ---
@@ -198,6 +333,11 @@ These are decisions for whoever funds the issuer account, not code:
 | 2026-09-30 | (this doc) | Initial decision. Testnet-only for v0.3.3. |
 | 2026-09-30 | `29ee5b3` | v0.4.0 shipped — §3 (expiry) blocker resolved. Re-decide on §2/§4 path to mainnet. |
 | 2026-09-30 | `3ba4b13` | Public GitHub repo tip after v0.4.0 push. PyPI publish: not planned. |
+| 2026-10-27 | `3fdcf4f` | **v0.5.0 Step A** — Python floor raised to 3.10, `xrpl-py` pinned to `>=5.0,<6`, CI matrix 3.10–3.13. Closes the §2 dependency concern. |
+| 2026-10-27 | `2be313c` | **v0.5.0 Step B** — `WalletProvider` shipped. `AgentIdentity.wallet` → `.provider` (deprecated, removed in v0.6.0). `submit_with_retry` re-autofills and re-signs per attempt in provider mode, fixing a stale-`LastLedgerSequence` retry that would have failed with `tefMAX_LEDGER`. |
+| 2026-10-27 | (this doc) | **§4 closed by decision.** Audit memos are forensic only; the ledger credential entry is the confirmed artifact. Two corrections to the previous §4: it said memos were signed by "the issuer's key" — they are signed by the **audit mirror key**, a deliberately separate key; and it described `decision_id` as a UUID — it is an **unsalted SHA-256**, which is what makes it recomputable. Also added §4.5: Deposit Authorization is not implemented. |
+| 2026-10-27 | (this doc) | Verify endpoint now returns `on_chain_proof.signer` — the account that signed the memo — so the response is self-contained. |
+| 2026-10-27 | `232cbae` | Public GitHub repo tip after the v0.5.0 push and the history scrub. PyPI publish: not planned. |
 | 2026-09-30 | `444cfb9` | README "Releases" + docs/dev/SYNC.md landed. PyPI plan retired from public docs. |
 
 ---

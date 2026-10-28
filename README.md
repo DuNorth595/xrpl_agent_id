@@ -449,7 +449,7 @@ with the run results — is in
 
 ## API surface
 
-The public surface is 19 names, pinned by `tests/test_public_api.py`.
+The public surface is 24 names, pinned by `tests/test_public_api.py`.
 
 ```python
 from xrpl_agent_id import (
@@ -529,7 +529,7 @@ solving a different problem.
 
 ```
 $ python -m pytest tests/ -q
-341 passed, 6 skipped
+345 passed, 6 skipped
 ```
 
 *(Verified against v0.5.0 on 2026-10-28.)*

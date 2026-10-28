@@ -8,7 +8,7 @@ including bug reports, which are the most valuable kind.
 | Path | Purpose |
 |---|---|
 | `xrpl_agent_id/` | the library (13 modules + `dashboard/`) |
-| `tests/` | 22 test modules, 345 offline tests |
+| `tests/` | 23 test modules, 345 offline tests |
 | `docs/` | architecture, changelog, internal session notes |
 | `scripts/check_no_seeds.py` | pre-commit seed scanner — **never disable it** |
 

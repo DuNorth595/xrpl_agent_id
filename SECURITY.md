@@ -4,9 +4,9 @@
 
 | Version | Supported |
 |---|---|
-| `0.4.x` (latest) | ✅ |
-| `0.3.x` | ⚠️ Critical fixes only |
-| `< 0.3` | ❌ No longer supported |
+| `0.5.x` (latest) | ✅ |
+| `0.4.x` | ⚠️ Critical fixes only |
+| `< 0.4` | ❌ No longer supported |
 
 ## Reporting a vulnerability
 

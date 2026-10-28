@@ -24,12 +24,12 @@ pre-commit install
 ## Before you open a pull request
 
 ```bash
-pytest tests/ -q          # must be 201 passed, 6 skipped (the 6 are live-testnet, opt-in)
+pytest tests/ -q          # must be 227 passed, 6 skipped (the 6 are live-testnet, opt-in)
 reuse lint                # must pass — this is enforced in CI
 pre-commit run --all-files
 ```
 
-CI runs a Python matrix (3.9–3.12) plus a `reuse lint` gate. Both must be green.
+CI runs a Python matrix (3.10–3.13) plus a `reuse lint` gate. Both must be green.
 
 ## House rules
 

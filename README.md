@@ -5,8 +5,8 @@ identifier, a W3C DID Document, and XLS-70 credential objects you can issue,
 accept, and verify. One Python package, no extra infrastructure.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![xrpl-py 4.5+](https://img.shields.io/badge/xrpl--py-4.5+-black.svg)](https://pypi.org/project/xrpl-py/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![xrpl-py 5.0+](https://img.shields.io/badge/xrpl--py-5.0+-black.svg)](https://pypi.org/project/xrpl-py/)
 [![SPDX: REUSE](https://img.shields.io/badge/SPDX-REUSE--compliant-brightgreen)](https://reuse.software/)
 [![CI](https://github.com/DuNorth595/xrpl_agent_id/actions/workflows/ci.yml/badge.svg)](https://github.com/DuNorth595/xrpl_agent_id/actions/workflows/ci.yml)
 

@@ -5,6 +5,10 @@
 **Branch:** `main`
 **Test framework:** pytest 8.4.2, Python 3.9.6
 
+> **Note (2026-10-27, v0.5.0):** the Python version above describes the runs
+> logged below. As of v0.5.0 the package requires **Python >= 3.10** and
+> `xrpl-py >= 5.0` — see the 2026-10-27 row in the table.
+
 ---
 
 ## How to run
@@ -31,8 +35,24 @@ RUN_LIVE=1 /usr/bin/python3 -m pytest tests/test_integration_ledger_live.py -v
 |---|---|---|---|---|
 | 2026-09-28 12:30 | 27 | 4 | 31 | Initial live wire-up |
 | 2026-09-28 21:35 | 43 | 6 | 49 | Trust library build-out |
+| 2026-10-27 20:40 | 227 | 6 | 233 | Python 3.11 + xrpl-py 5.2.0 — v0.5.0 dependency floor raise. See below. |
 
-Latest: **43 offline + 6 live = 49 passing**, 0 failures.
+Latest: **227 offline + 6 live = 233 passing**, 0 failures.
+
+**v0.5.0 dependency floor raise (2026-10-27).** The suite was re-run on
+Python 3.11 with `xrpl-py 5.2.0` before raising the declared floor to
+`requires-python = ">=3.10"` and pinning `xrpl-py>=5.0,<6`. Two specific
+risks were checked rather than assumed:
+
+- `xrpl-py` 5.x renamed the default signing algorithm in `Wallet`. Verified
+  the default is **still Ed25519** in both 4.5.0 and 5.2.0 (`ED` public-key
+  prefix), so the DID and credential signing paths are unaffected.
+- The 3.10+ syntax floor is a *dependency* constraint, not a *syntax* one.
+  Every module using `X | None` annotations carries
+  `from __future__ import annotations`, so the annotations are never
+  evaluated at runtime.
+
+The 6 live tests remain opt-in via `RUN_LIVE=1`.
 
 ---
 

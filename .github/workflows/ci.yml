@@ -21,7 +21,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        # v0.5.0: matches xrpl-py 5.x's supported range exactly.
+        # Python 3.9 was dropped -- xrpl-py 5.x requires >= 3.10, and this
+        # package now declares `requires-python = ">=3.10"`.
+        # 3.13 was added: xrpl-py 5.x supports it and an institution on a
+        # current Python should not be the first to find a break.
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
       - name: Checkout
@@ -58,6 +63,35 @@ jobs:
           python -m xrpl_agent_id --version
           python -m xrpl_agent_id --api > /tmp/api_surface.json
           test -s /tmp/api_surface.json
+
+  resolve:
+    name: dependency resolution
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install package + dev extras
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Report resolved dependency versions
+        # v0.5.0: the point of pinning xrpl-py is that the version in use is
+        # KNOWN, not whatever the resolver happens to pick. This job makes the
+        # resolved xrpl-py version visible in the CI log, so a future bump
+        # cannot drift silently.
+        run: |
+          python -m pip show xrpl-py
+          python -c "import xrpl, sys; print('xrpl-py', xrpl.__version__ if hasattr(xrpl,'__version__') else '(no __version__ attr)')"
+
+      - name: Verify the package imports cleanly
+        run: python -m xrpl_agent_id --version
 
   reuse:
     name: REUSE license compliance

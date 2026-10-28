@@ -4,6 +4,60 @@ All notable changes to `xrpl_agent_id` are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-10-27
+
+This section covers the in-progress v0.5.0 work. Steps A and B of the v0.5.0
+track are described below; the `WalletProvider` interface and the
+`submit_with_retry` rewrite are still in design (see
+`WALLETPROVIDER_SPEC_2026-10-27.md`).
+
+### Breaking changes
+- **Python 3.9 is no longer supported.** `requires-python` is now `>=3.10` and
+  the `Programming Language :: Python :: 3.9` classifier is removed. The
+  `xrpl-py` dependency is pinned to `>=5.0,<6`, and xrpl-py 5.x itself requires
+  Python >= 3.10.
+
+  *Why now:* the dependency was declared `xrpl-py>=4.5.0` — unbounded. Because
+  xrpl-py 5.x requires Python >= 3.10, a fresh install on Python 3.9 resolved to
+  xrpl-py 4.x while an install on Python 3.10+ resolved to 5.x. The same release
+  of this package therefore ran against **two major versions of its only
+  dependency**, and only one of them was ever tested. An institution
+  standardizing on a supported Python got xrpl-py 5.x; the 3.9 path was an
+  untested minority.
+
+  This is a *dependency* constraint, not a syntax one: every module using
+  `X | None` annotations carries `from __future__ import annotations`, so those
+  annotations are never evaluated at runtime.
+
+  *Migration:* upgrade to Python 3.10 or newer and reinstall. No code changes
+  are required — the package's own API is unchanged by this release.
+
+### Changed
+- **`xrpl-py` is pinned to `>=5.0,<6`.** The upper bound is deliberate: a major
+  bump in the dependency is a breaking change for this package and should be
+  made deliberately, not absorbed silently by the resolver.
+- **CI matrix is now Python 3.10, 3.11, 3.12, and 3.13** — matching xrpl-py 5.x's
+  supported range exactly. 3.9 was removed; 3.13 was added, so an adopter on a
+  current Python is not the first to find a break.
+- **A new `resolve` CI job reports the resolved dependency versions**, so the
+  xrpl-py version actually in use is visible in the CI log rather than implied.
+- **README badges** now read "Python 3.10+" and "xrpl-py 5.0+".
+- **`CONTRIBUTING.md`** documents the 3.10–3.13 matrix. Its expected test count
+  was also corrected from 201 to 227, which was stale.
+
+### Fixed
+- **A test asserted on CPython's exact error wording and broke on Python 3.14.**
+  `tests/_smoke/test_quickstart_api.py` asserted that a `TypeError` message
+  contained the string `"can't be used in 'await' expression"`. CPython 3.14
+  changed that message to `"'MagicMock' object can't be awaited"`, so the
+  quickstart smoke tests errored on 3.14 even though the library behaved
+  correctly. The assertion now checks the *intent* — that the `TypeError`
+  came from awaiting the mock rather than from the library's own argument
+  validation — instead of a CPython-version tripwire.
+
+  No library behaviour changed. The 227-test suite passes on Python 3.11 and
+  3.14 with xrpl-py 5.2.0.
+
 ## [0.4.3] - 2026-10-23
 
 ### Security

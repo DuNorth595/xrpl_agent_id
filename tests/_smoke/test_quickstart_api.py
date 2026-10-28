@@ -41,9 +41,17 @@ def smoke_env():
 
     # ---- Step 3: issue_credential accepts the documented arg shape ----
     # The mock will fail downstream in submit_and_wait's async dance. We catch
-    # only TypeError; if it's the expected "can't await MagicMock" TypeError
+    # only TypeError; if it's the expected "awaited a non-awaitable" TypeError
     # from xrpl-py (not from issue_credential's own arg validation), the
     # signature is correct.
+    #
+    # The wording of CPython's "object is not awaitable" TypeError has changed
+    # across versions — 3.11 said "object MagicMock can't be used in 'await'
+    # expression", 3.14 says "'MagicMock' object can't be awaited". Asserting
+    # on either exact string would make this test a CPython-version tripwire
+    # for no benefit. What matters is the INTENT: the TypeError came from
+    # awaiting the mock, not from our own argument validation. So we check
+    # that the message mentions the mock and that it is an await complaint.
     with patch("xrpl_agent_id.network.get_client", return_value=mock_client):
         env["weathercorp"] = Authority.from_seed(SEED, network="testnet")
         try:
@@ -53,7 +61,10 @@ def smoke_env():
                 uri="https://weathercorp.example/credentials/verified-v1.json",
             )
         except TypeError as e:
-            assert "can't be used in 'await' expression" in str(e), (
+            msg = str(e)
+            is_await_complaint = "await" in msg
+            mentions_the_mock = "MagicMock" in msg
+            assert is_await_complaint and mentions_the_mock, (
                 f"unexpected TypeError — issue_credential's own arg validation "
                 f"may have failed: {e}"
             )

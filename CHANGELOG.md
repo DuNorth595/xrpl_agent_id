@@ -32,6 +32,35 @@ track are described below; the `WalletProvider` interface and the
   *Migration:* upgrade to Python 3.10 or newer and reinstall. No code changes
   are required — the package's own API is unchanged by this release.
 
+### Added
+- **Batch anchoring — one transaction per batch instead of per decision.**
+  `xrpl_agent_id/merkle.py` provides a Merkle tree (domain-separated
+  leaves, `SHA256(left || right)` interior nodes, odd node promoted
+  unchanged) with `merkle_root`, `merkle_proof` and `verify_inclusion`.
+  `AuditLog.anchor_batch()` collects the decisions that have not been
+  anchored and puts them in a single transaction carrying the batch's
+  Merkle root; `AuditLog.batch_proof()` returns the inclusion proof for
+  any anchored decision.
+
+  A verifier needs only the leaf, the proof path, and the anchored root
+  — not the operator's database — so the batch is an audit rather than a
+  claim. The proof path encodes direction, so a reordered or truncated
+  path fails verification.
+
+  At one million decisions a day this is the difference between roughly
+  $6,650/day and roughly $6.65/day at the median fee. See
+  `XRPL_COST_MODEL.md`.
+
+- **`Authority.issue_credential_cheapest()`** — issues a credential
+  without the optional DID object, for two transactions instead of
+  three. XLS-70 defines the `Credential` object's `Subject` and `Issuer`
+  as `AccountID`s; a DID object is *recommended* for W3C VC compliance,
+  not required, and the DID is derivable from the address with no
+  ledger access. A DID object can still be published later in one
+  transaction.
+
+  33% fewer setup fees, and 1.2 XRP of lockup instead of 1.4 XRP.
+
 ### Fixed
 - **Mainnet reserve and fee figures were stale by ~100x.** `docs/MAINNET_DECISION.md`
   §1 and the README stated a 200 XRP base reserve and 2 XRP per owned ledger

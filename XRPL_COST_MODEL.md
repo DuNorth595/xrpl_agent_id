@@ -175,6 +175,51 @@ not.
 
 ---
 
+### Tier 3 — the ONE case that earns an on-chain transaction
+
+A **revocation**. `CredentialDelete` is a state change that must be
+on-chain, and it costs nothing extra because it replaces the revoke you
+would have needed anyway.
+
+### 3.1 The cheapest identity — skip the optional DID object
+
+The full flow is **three** transactions: `DIDSet`,
+`CredentialCreate`, `CredentialAccept`. It can be **two**.
+
+XLS-70 defines the `Credential` object's `Subject` and `Issuer` as
+`AccountID`s — not as DID documents. A DID object is *recommended*
+("It is recommended that anyone who holds a credential also have a DID
+object, to increase compliance with the W3C VC spec"), **not
+required**. And the DID is *derivable* from the address with no ledger
+access at all — `did_from_account()` is pure string manipulation.
+
+So a credential to a bare address is fully valid.
+`Authority.issue_credential_cheapest()` is the two-transaction path.
+
+| Path | Transactions | @ base fee | @ median fee | DID object? |
+|---|---|---|---|---|
+| Full (DID + create + accept) | 3 | $0.000040 | $0.0199 | yes |
+| **Cheapest (create + accept)** | **2** | **$0.000027** | **$0.0133** | **no** |
+
+**33% fewer setup fees**, and the lockup drops from 1.4 XRP to 1.2 XRP
+because there is no DID object to own. The DID object can be published
+later, in one transaction, if W3C VC-document compliance is needed.
+
+### 3.2 One account, many credentials
+
+The 1 XRP base reserve is per-**account**, and one account can hold
+many credentials. An "agent" that is really a fleet of sub-agents can
+share one account:
+
+| Topology | Transactions | Reserve locked |
+|---|---|---|
+| 100 identities, 1 account each | 200 | 120 XRP |
+| **100 credentials, 1 account** | 200 | **21 XRP** |
+
+**Same fees, 5.7× less locked.** This is the single biggest lockup
+lever, and it is invisible in the library's API because `AgentIdentity`
+maps 1:1 to a wallet.
+
 ## 4. Lockup at scale
 
 **Lockup does not scale with transaction volume. Fees do.** They are

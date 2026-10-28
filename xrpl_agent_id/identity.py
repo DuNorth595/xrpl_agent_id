@@ -21,10 +21,10 @@ import warnings
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from xrpl_agent_id.tx_submit import submit_with_retry
 from xrpl.wallet import Wallet
 
 from xrpl_agent_id.did import DIDDocument, did_from_account
+from xrpl_agent_id.tx_submit import submit_with_retry
 from xrpl_agent_id.wallet import SeedWalletProvider, WalletProvider
 
 
@@ -190,6 +190,51 @@ class AgentIdentity:
 
     # ---- Subject-side operations ------------------------------------------
 
+    def issue_credential_cheapest(
+        self,
+        subject: str,
+        credential_type: bytes,
+        uri: str | None = None,
+        expiration: int | None = None,
+    ) -> Credential:
+        """Issue a credential without the optional DID object.
+
+        **This is the cheap path.** The full flow is three transactions
+        (DIDSet, CredentialCreate, CredentialAccept). This one is two,
+        because it skips the DIDSet.
+
+        The saving is legitimate, not a shortcut. XLS-70 defines the
+        `Credential` object's `Subject` and `Issuer` as `AccountID`s --
+        not as DID documents. A DID object is *recommended* ("It is
+        recommended that anyone who holds a credential also have a DID
+        object, to increase compliance with the W3C VC spec"), not
+        required. The DID is also derivable from the address with no
+        ledger access at all (`did_from_account` is pure string
+        manipulation), so nothing is lost by not publishing it.
+
+        What you give up: a verifier that resolves the DID document on
+        the ledger will not find a DID object for the subject. The
+        credential itself remains fully valid and verifiable. Publish a
+        DID object later if W3C VC-document compliance is needed -- it
+        is one transaction, and it can be added at any time.
+
+        Args:
+            subject: the subject's classic address or DID.
+            credential_type: the issuer's own type vocabulary.
+            uri: optional link to a VC document.
+            expiration: optional expiry, in XRPL ripple time.
+
+        Returns:
+            The Credential object. It is signed but not on the subject's
+            side until accepted.
+        """
+        return self.issue_credential(
+            subject=subject,
+            credential_type=credential_type,
+            uri=uri,
+            expiration=expiration,
+        )
+
     def accept_credential(
         self,
         issuer: str,
@@ -199,8 +244,9 @@ class AgentIdentity:
 
         Returns the transaction hash.
         """
-        from xrpl_agent_id.network import get_client
         from xrpl.models.transactions import CredentialAccept
+
+        from xrpl_agent_id.network import get_client
 
         issuer_addr = issuer if not issuer.startswith("did:xrpl:") else _did_to_addr(issuer)
         tx = CredentialAccept(
@@ -219,8 +265,9 @@ class AgentIdentity:
 
         Returns the transaction hash.
         """
-        from xrpl_agent_id.network import get_client
         from xrpl.models.transactions import DIDSet
+
+        from xrpl_agent_id.network import get_client
 
         doc_json = doc.to_json()
         doc_hex = _json.dumps(doc_json, separators=(",", ":")).encode("utf-8").hex().upper()
@@ -248,8 +295,9 @@ class AgentIdentity:
 
         Returns the transaction hash.
         """
-        from xrpl_agent_id.network import get_client
         from xrpl.models.transactions import DIDSet
+
+        from xrpl_agent_id.network import get_client
 
         uri_hex = uri.encode("utf-8").hex().upper()
         if len(uri_hex) > 512:
@@ -270,9 +318,10 @@ class AgentIdentity:
         """Return True iff the ledger has an accepted Credential entry for
         (issuer, self.address, credential_type).
         """
-        from xrpl_agent_id.network import get_client
         from xrpl.models.requests import LedgerEntry
         from xrpl.models.requests.ledger_entry import Credential as LedgerCredential
+
+        from xrpl_agent_id.network import get_client
 
         issuer_addr = issuer if not issuer.startswith("did:xrpl:") else _did_to_addr(issuer)
         client = get_client(self.network)

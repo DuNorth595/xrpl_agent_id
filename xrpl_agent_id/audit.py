@@ -36,7 +36,6 @@ from typing import Any, Optional
 from xrpl_agent_id.authorization import AuthorizationDecision
 from xrpl_agent_id.tx_submit import FeeCeilingExceeded
 
-
 AUDIT_SCHEMA = """
 CREATE TABLE IF NOT EXISTS auth_decisions (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,7 +49,9 @@ CREATE TABLE IF NOT EXISTS auth_decisions (
     agent_record  TEXT,
     extra_json    TEXT,
     mirrored_tx   TEXT,
-    decision_id   TEXT
+    decision_id   TEXT,
+    anchor_root   TEXT,
+    anchor_index  INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_ad_agent    ON auth_decisions(agent_did);
@@ -59,6 +60,7 @@ CREATE INDEX IF NOT EXISTS idx_ad_allow    ON auth_decisions(allow);
 CREATE INDEX IF NOT EXISTS idx_ad_request  ON auth_decisions(request_id);
 CREATE INDEX IF NOT EXISTS idx_ad_decid    ON auth_decisions(decision_id);
 CREATE INDEX IF NOT EXISTS idx_ad_mirtx    ON auth_decisions(mirrored_tx);
+CREATE INDEX IF NOT EXISTS idx_ad_anchor   ON auth_decisions(anchor_root);
 """
 
 
@@ -166,8 +168,9 @@ class XRPLMirror:
         destination: str | None = None,
         max_fee_drops: int | None = None,
     ) -> "XRPLMirror":
-        from xrpl_agent_id.wallet import SeedWalletProvider
         from xrpl.wallet import Wallet
+
+        from xrpl_agent_id.wallet import SeedWalletProvider
         return cls(
             provider=SeedWalletProvider(Wallet.from_seed(seed)),
             network=network,
@@ -175,14 +178,86 @@ class XRPLMirror:
             max_fee_drops=max_fee_drops,
         )
 
+    def submit_batch(
+        self,
+        decision_ids: list[str],
+        *,
+        extra: dict | None = None,
+    ) -> str:
+        """Anchor a BATCH of decisions in one transaction.
+
+        **This is the cheap path.** Instead of one transaction per
+        decision, the transaction carries the Merkle root of the whole
+        batch. One fee covers every decision in it.
+
+        The root is a 32-byte SHA-256, so it fits in an XRPL memo
+        (256 bytes of payload) with room to spare -- the memo also
+        carries the batch size and the first/last decision id for
+        convenience.
+
+        A verifier confirms inclusion with
+        :func:`xrpl_agent_id.merkle.verify_inclusion`, which needs only
+        the decision id, its proof path, and this root. It does not
+        need the operator's database.
+
+        Args:
+            decision_ids: the decision ids in the batch, in order.
+                The order is committed to by the root.
+            extra: optional metadata recorded in the memo.
+
+        Returns:
+            The transaction hash.
+        """
+        from xrpl.models.transactions import Memo, Payment
+
+        from xrpl_agent_id.merkle import merkle_root
+        from xrpl_agent_id.network import get_client
+        from xrpl_agent_id.tx_submit import submit_with_retry
+
+        if not decision_ids:
+            raise ValueError("cannot anchor an empty batch")
+
+        root = merkle_root(decision_ids)
+        memo_payload = {
+            "app": self.APP_TAG,
+            "v": self.SCHEMA_VERSION,
+            "kind": "batch",
+            "root": root,
+            "count": len(decision_ids),
+            "first": decision_ids[0],
+            "last": decision_ids[-1],
+        }
+        if extra:
+            memo_payload["meta"] = extra
+        memo_data = json.dumps(memo_payload, separators=(",", ":"))
+
+        tx = Payment(
+            account=self.provider.classic_address,
+            destination=self.destination,
+            amount="1",  # 1 drop -- the smallest valid XRP amount.
+            memos=[
+                Memo(
+                    memo_data=memo_data.encode("utf-8").hex().upper(),
+                    memo_format="68747470733A2F2F7872706C2D6167656E742D69642E6578616D706C652F6175646974"
+                                # "https://xrpl-agent-id.example/audit"
+                )
+            ],
+        )
+        client = get_client(self.network)
+        result = submit_with_retry(
+            tx, client, self.provider, max_fee_drops=self.max_fee_drops
+        )
+        return (result or {}).get("hash", "")
+
     def submit(self, decision: AuthorizationDecision, extra: dict | None = None) -> str:
         """Submit the decision hash as a memo on a payment to ``destination``.
 
         Returns the tx hash. Raises on submission failure.
         """
-        from xrpl_agent_id.tx_submit import submit_with_retry
-        from xrpl.models.transactions import Payment, Memo
+        from xrpl.models.transactions import Memo, Payment
+
         from xrpl_agent_id.network import get_client
+        from xrpl_agent_id.tx_submit import submit_with_retry
 
         digest = compute_decision_id(decision)
 
@@ -252,11 +327,52 @@ class AuditLog:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
         for stmt in AUDIT_SCHEMA.strip().split(";"):
-            s = stmt.strip()
-            if s:
-                self._conn.execute(s)
+            st = stmt.strip()
+            if not st:
+                continue
+            try:
+                self._conn.execute(st)
+            except sqlite3.OperationalError:
+                # An index over a column introduced later (anchor_root)
+                # fails on a database created before that column existed.
+                # The migration below adds the column and creates the
+                # index, so skip it here rather than failing to open.
+                if "anchor_root" in st:
+                    continue
+                raise
+        self._ensure_columns()
         self.xrpl_mirror = xrpl_mirror
         self.mirror_on_deny_only = mirror_on_deny_only
+
+    def _ensure_columns(self) -> None:
+        """Add columns introduced after a database was first created.
+
+        `AUDIT_SCHEMA` uses `CREATE TABLE IF NOT EXISTS`, so an existing
+        database keeps whatever schema it was created with and never
+        picks up new columns. The batch anchor added `anchor_root` and
+        `anchor_index`; without this, an existing audit database would
+        fail on the first batch anchor with "no such column".
+
+        `ALTER TABLE ... ADD COLUMN` fails if the column already
+        exists, so check `PRAGMA table_info` first. Adding a column is
+        cheap and safe: SQLite does not rewrite the table.
+        """
+        existing = {
+            row[1] for row in self._conn.execute("PRAGMA table_info(auth_decisions)")
+        }
+        for column, decl in (
+            ("anchor_root", "TEXT"),
+            ("anchor_index", "INTEGER"),
+        ):
+            if column not in existing:
+                self._conn.execute(
+                    f"ALTER TABLE auth_decisions ADD COLUMN {column} {decl}"
+                )
+        # The index may have been skipped above (the column did not
+        # exist yet). Create it now that the column is there.
+        self._conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ad_anchor ON auth_decisions(anchor_root)"
+        )
 
     @classmethod
     def from_dashboard_db(
@@ -370,6 +486,138 @@ class AuditLog:
                     )
 
         return new_id
+
+    def anchor_batch(
+        self,
+        *,
+        limit: int = 1000,
+        include_anchored: bool = False,
+    ) -> dict[str, Any]:
+        r"""Anchor pending decisions in ONE transaction.
+
+        **The cheap path.** Every decision is already recorded in
+        SQLite at no cost. This collects the ones that have not been
+        anchored on-chain and puts them into a single transaction
+        carrying the Merkle root of the batch. One fee covers the whole
+        batch.
+
+        At the base fee that is about \$0.00001 per decision at a batch
+        size of 1,000, against roughly \$0.00665 per decision if each
+        were anchored on its own.
+
+        The rows are marked with the anchoring transaction hash, and
+        the batch's decision ids are stored so a verifier can be given
+        the proof path for any one of them.
+
+        Args:
+            limit: maximum decisions to include in the batch.
+            include_anchored: include decisions that were already
+                anchored. Normally False -- re-anchoring would spend a
+                second fee on the same decision.
+
+        Returns:
+            A dict with the transaction hash, the batch size, the
+            Merkle root, and the list of decision ids. ``tx_hash`` is
+            None when there was nothing to anchor.
+        """
+        if self.xrpl_mirror is None:
+            return {
+                "tx_hash": None,
+                "count": 0,
+                "root": None,
+                "decision_ids": [],
+                "skipped": "no mirror configured",
+            }
+
+        where = "" if include_anchored else " WHERE mirrored_tx IS NULL"
+        rows = self._conn.execute(
+            f"SELECT id, decision_id FROM auth_decisions{where} "
+            "ORDER BY id ASC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+        if not rows:
+            return {
+                "tx_hash": None,
+                "count": 0,
+                "root": None,
+                "decision_ids": [],
+                "skipped": "nothing pending",
+            }
+
+        row_ids = [r["id"] for r in rows]
+        decision_ids = [r["decision_id"] for r in rows]
+
+        from xrpl_agent_id.merkle import merkle_root
+
+        root = merkle_root(decision_ids)
+        tx_hash = self.xrpl_mirror.submit_batch(decision_ids)
+
+        # Mark the rows with the anchoring transaction, and record the
+        # root so a verifier can be handed the proof path.
+        placeholders = ",".join("?" for _ in row_ids)
+        self._conn.execute(
+            "UPDATE auth_decisions SET mirrored_tx = ?, "
+            "anchor_root = ?, anchor_index = CASE id "
+            + "".join(
+                f"WHEN {rid} THEN {pos} " for pos, rid in enumerate(row_ids)
+            )
+            + "END "
+            f"WHERE id IN ({placeholders})",
+            [tx_hash, root, *row_ids],
+        )
+
+        return {
+            "tx_hash": tx_hash,
+            "count": len(decision_ids),
+            "root": root,
+            "decision_ids": decision_ids,
+        }
+
+    def batch_proof(self, decision_id: str) -> dict[str, Any] | None:
+        """Return the inclusion proof for an anchored decision.
+
+        This is what a third party needs to verify that a decision was
+        in an anchored batch: the decision id, the proof path, and the
+        anchored root.
+
+        Args:
+            decision_id: the decision to prove.
+
+        Returns:
+            A dict with ``decision_id``, ``proof``, ``root`` and
+            ``tx_hash``, or None if the decision is unknown or was not
+            anchored as part of a batch.
+        """
+        from xrpl_agent_id.merkle import merkle_proof
+
+        row = self._conn.execute(
+            "SELECT id, decision_id, mirrored_tx, anchor_root, anchor_index "
+            "FROM auth_decisions WHERE decision_id = ?",
+            (decision_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        if not row["anchor_root"] or row["anchor_index"] is None:
+            return None
+
+        # Rebuild the batch in the same order it was anchored.
+        batch_rows = self._conn.execute(
+            "SELECT decision_id FROM auth_decisions "
+            "WHERE mirrored_tx = ? AND anchor_root = ? ORDER BY anchor_index ASC",
+            (row["mirrored_tx"], row["anchor_root"]),
+        ).fetchall()
+        batch_ids = [r["decision_id"] for r in batch_rows]
+        if decision_id not in batch_ids:
+            return None
+
+        proof = merkle_proof(batch_ids, batch_ids.index(decision_id))
+        return {
+            "decision_id": decision_id,
+            "proof": proof,
+            "root": row["anchor_root"],
+            "tx_hash": row["mirrored_tx"],
+        }
 
     def query(
         self,

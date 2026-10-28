@@ -56,7 +56,14 @@ xrpl_agent_id.<NAME>  # all names below must be reachable this way
 |---|---|
 | `require(issuer, credential_type, description=...)` | The agent must hold a matching credential. A set of issuers is satisfied by **any** of them. |
 | `deny(issuer, credential_type, description=...)` | The agent must **not** hold a matching credential. |
-| `ban(subject, description=...)` | The agent is denied outright, whatever it holds. Evaluated first, and reported as `result.banned` with `result.ban_reason`. |
+| `ban(subject, description=...)` | The agent is denied outright, whatever it holds. Evaluated first, and reported as `result.banned` with `result.ban_reason`. Accepts an address or a DID. |
+
+A ban applies to the **subject**. It does not apply to the agent's
+controllers — the signers on a multi-sig account. The internal
+`BannedAgentRegistry` module supports controller bans and
+`authorization.AuthorizationPolicy` consults it, but `AuthorizationPolicy`
+is not a public export and `TrustRegistry` does not read a ban list, so a
+controller ban is not reachable from the public API today.
 | `check(agent_did)` | Evaluate every rule. Returns a `TrustCheckResult`. |
 
 `credential_type` accepts `bytes` or `str` and is stored as `bytes`

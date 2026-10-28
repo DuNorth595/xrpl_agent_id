@@ -222,6 +222,18 @@ class TrustRegistry:
             subject: One agent address or DID, an iterable of them, or None
                 to match any agent (use with care).
             description: Optional human-readable label.
+
+        Note:
+            This bans the *subject*. It does not ban the agent's
+            controllers -- the signers on a multi-sig account. The
+            separate `BannedAgentRegistry` module supports controller
+            bans, and `authorization.AuthorizationPolicy` consults it,
+            but `AuthorizationPolicy` is not a public export and
+            `TrustRegistry` does not read a ban list.
+
+            So a controller ban is not reachable from the public API
+            today. That is a known gap, tracked in the docs, not an
+            oversight in how a ban is matched.
         """
         addresses: set[str] | None
         if subject is None:

@@ -42,6 +42,15 @@ found by reviewing the API rather than by a failing test.
 
 ### Fixed
 
+- **The controller-ban gap is now documented.** `TrustRegistry.ban()`
+  bans the *subject*. It does not ban the agent's controllers — the
+  signers on a multi-sig account. The internal `BannedAgentRegistry`
+  module supports controller bans and `authorization.AuthorizationPolicy`
+  consults it, but `AuthorizationPolicy` is not a public export and
+  `TrustRegistry` does not read a ban list, so a controller ban is not
+  reachable from the public API today. This is stated in `ban()`'s
+  docstring and in `PUBLIC_API.md` rather than left implicit.
+
 - **A ban written as a DID did not match.** `ban()` accepted an address
   or a DID, and the check compares against the subject's *address*. A
   DID-form ban was stored as the DID string and therefore never matched

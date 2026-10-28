@@ -201,7 +201,7 @@ Want to block specific issuers? Add `.deny()`:
 
 ```python
 policy.deny(
-    issuer="rBadActorAddressHere...",
+    issuer="rPzMYxDubFsbSh7bS9evarrh9Y5U1n9v13",
     credential_type=None,  # any type
     description="Known compromised issuer",
 )

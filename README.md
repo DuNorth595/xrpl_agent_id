@@ -171,7 +171,7 @@ from xrpl_agent_id.authorization import AuthorizationPolicy, RequestContext
 from xrpl_agent_id.banned import Ban, BannedAgentRegistry
 
 bans = BannedAgentRegistry(network="mainnet")
-bans.add(Ban(address="rBadAgent...", reason="abuse report #4421", added_by="ops"))
+bans.add(Ban(address="rPzMYxDubFsbSh7bS9evarrh9Y5U1n9v13", reason="abuse report #4421", added_by="ops"))
 
 policy = AuthorizationPolicy(network="mainnet", bans=bans)
 policy.require_credential(
@@ -366,15 +366,15 @@ from xrpl_agent_id.banned import Ban, BannedAgentRegistry
 from xrpl_agent_id.audit import AuditLog, XRPLMirror
 
 bans = BannedAgentRegistry()
-bans.add(Ban(address="rBadAgent...", reason="abuse report #4421", added_by="ops"))
+bans.add(Ban(address="rPzMYxDubFsbSh7bS9evarrh9Y5U1n9v13", reason="abuse report #4421", added_by="ops"))
 
 policy = AuthorizationPolicy(bans=bans)
 policy.require_credential(
-    issuer="rIssuer...",
+    issuer="rTBDupBmeDkA9DVTDw4u5MdaUYptF3YJY",
     credential_type=b"agent_identity_v1",
 )
 
-decision = policy.evaluate("rAgent...", context=RequestContext(resource="/api/transfer"))
+decision = policy.evaluate("rwJX1TTwbrEV3thJ5oUaKt56sNTcGSZUmn", context=RequestContext(resource="/api/transfer"))
 assert decision.allow is False
 assert decision.reasons[0].code.name == "AGENT_BANNED"
 

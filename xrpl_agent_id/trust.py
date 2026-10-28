@@ -231,6 +231,11 @@ class TrustRegistry:
         else:
             addresses = set(subject)
 
+        # A ban may be written as a DID or as a bare address. The check
+        # compares against the subject's *address*, so a DID has to be
+        # reduced to one, or the ban would silently never match.
+        addresses = self._normalize_ban_subjects(addresses)
+
         self._rules.append(
             TrustPolicy(
                 issuers=addresses,
@@ -240,6 +245,28 @@ class TrustRegistry:
             )
         )
         return self
+
+    @staticmethod
+    def _normalize_ban_subjects(addresses: set[str] | None) -> set[str] | None:
+        """Reduce any DID-form subjects to bare addresses.
+
+        `ban()` accepts an address or a DID. The check compares against the
+        subject's address, so a DID has to be parsed down to one -- otherwise
+        a ban written as a DID would silently never match, and the agent
+        would be allowed through.
+        """
+        if addresses is None:
+            return None
+        from xrpl_agent_id.did import parse_did
+
+        normalized: set[str] = set()
+        for item in addresses:
+            if item.startswith("did:xrpl:"):
+                _, address = parse_did(item)
+                normalized.add(address)
+            else:
+                normalized.add(item)
+        return normalized
 
     def check(self, agent_did: str) -> TrustCheckResult:
         """Evaluate all rules against the given agent.

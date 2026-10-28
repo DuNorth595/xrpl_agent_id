@@ -215,3 +215,49 @@ def test_summary_mentions_a_ban():
 
     assert "BANNED" in result.summary()
     assert "fraud" in result.summary()
+
+def test_ban_accepts_a_did_and_still_matches():
+    """A ban written as a DID must actually deny the agent.
+
+    The check compares against the subject's address. A DID-form ban
+    that was not reduced to an address would silently never match, and
+    the agent would be allowed through.
+    """
+    address = "rSubjectAddressXXXXXXXXXXXXXXXXXXXX"
+    registry = TrustRegistry(network="testnet")
+    registry.ban("did:xrpl:2:" + address, description="banned by DID")
+
+    # The rule stores the reduced address, so it compares like-for-like.
+    assert registry._rules[0].issuers == {address}
+
+    with patch.object(TrustRegistry, "_get_agent_credentials", return_value=[]):
+        result = registry.check("did:xrpl:2:" + address)
+
+    assert result.banned is True
+    assert result.ban_reason == "banned by DID"
+
+
+def test_ban_accepts_a_bare_address():
+    address = "rSubjectAddressXXXXXXXXXXXXXXXXXXXX"
+    registry = TrustRegistry(network="testnet")
+    registry.ban(address, description="banned by address")
+
+    assert registry._rules[0].issuers == {address}
+
+    with patch.object(TrustRegistry, "_get_agent_credentials", return_value=[]):
+        result = registry.check("did:xrpl:2:" + address)
+
+    assert result.banned is True
+
+
+def test_ban_accepts_a_mixed_set_of_forms():
+    a = "rAddressXXXXXXXXXXXXXXXXXXXXXXXXXX"
+    b = "rOtherAddressXXXXXXXXXXXXXXXXXXXXXXXX"
+    registry = TrustRegistry(network="testnet")
+    registry.ban([a, "did:xrpl:2:" + b], description="mixed")
+
+    assert registry._rules[0].issuers == {a, b}
+
+    with patch.object(TrustRegistry, "_get_agent_credentials", return_value=[]):
+        assert registry.check("did:xrpl:2:" + b).banned is True
+        assert registry.check("did:xrpl:2:" + a).banned is True

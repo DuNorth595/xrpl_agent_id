@@ -38,7 +38,16 @@ found by reviewing the API rather than by a failing test.
   and `ban_reason`. A ban with no credential type matches on the
   subject alone, regardless of what the agent holds.
 - `TrustCheckResult.banned` and `TrustCheckResult.ban_reason`.
-- `tests/test_trust_policy.py` — 18 tests covering all of the above.
+- `tests/test_trust_policy.py` — 21 tests covering all of the above.
+
+### Fixed
+
+- **A ban written as a DID did not match.** `ban()` accepted an address
+  or a DID, and the check compares against the subject's *address*. A
+  DID-form ban was stored as the DID string and therefore never matched
+  -- the agent was allowed through, silently. DIDs are now reduced to
+  their address when the rule is created. Covered by three regression
+  tests.
 
 ### Compatibility
 

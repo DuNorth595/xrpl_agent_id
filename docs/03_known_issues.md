@@ -55,8 +55,6 @@ production, so both bugs were invisible to CI.
 pre-fix tree. That is the general lesson: a test that constructs its own inputs
 proves nothing about how the library behaves on real ledger data.
 
-## Fixed in v0.4.3
-
 ### 3. DID documents were not validated
 
 **Status:** fixed in v0.4.3

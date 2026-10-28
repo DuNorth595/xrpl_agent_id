@@ -234,7 +234,7 @@ Verify:
 
 ```bash
 python -m xrpl_agent_id --version      # → xrpl_agent_id 0.4.3
-python -m pytest tests/                # → 227 passed, 6 skipped (live testnet)
+python -m pytest tests/                # → 255 passed, 6 skipped (live testnet)
 ```
 
 *(Test count as of v0.4.3, verified 2026-10-27.)*
@@ -355,7 +355,7 @@ solving a different problem.
 
 ```
 $ python -m pytest tests/ -q
-227 passed, 6 skipped
+255 passed, 6 skipped
 ```
 
 *(Verified against v0.4.3 on 2026-10-27.)*

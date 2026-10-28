@@ -24,7 +24,7 @@ pre-commit install
 ## Before you open a pull request
 
 ```bash
-pytest tests/ -q          # must be 252 passed, 6 skipped (the 6 are live-testnet, opt-in)
+pytest tests/ -q          # must be 255 passed, 6 skipped (the 6 are live-testnet, opt-in)
 reuse lint                # must pass — this is enforced in CI
 pre-commit run --all-files
 ```

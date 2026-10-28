@@ -91,6 +91,7 @@ The package's public surface is intentionally small — callers
 | `NETWORK_IDS`, `NETWORKS`, `did_from_account`, `parse_did`, `resolve_did` | DID helpers |
 | `get_client`, `get_network`, `NetworkEndpoint` | Network helpers |
 | `TrustRegistry`, `TrustPolicy`, `TrustCheckResult`, `VerificationResult` | Trust layer |
+| `WalletProvider`, `SeedWalletProvider`, `ExternalSignerProvider` | Signing (v0.5.0) |
 
 Internal modules (`authorization`, `audit`, `registry`, `banned`,
 `dashboard`) are deliberately not re-exported — callers reach for the
@@ -210,6 +211,22 @@ The only module that writes to the audit DB or the ledger on the
 **mirror** path. See §5.
 
 ---
+
+### 2.11 `xrpl_agent_id/wallet.py`
+
+The signing interface. `WalletProvider` is a protocol with three members —
+`classic_address`, `public_key`, `sign(tx)` — so an institution can sign
+with a KMS, HSM, or hardware wallet that never reveals the key.
+`SeedWalletProvider` wraps an in-process `xrpl.wallet.Wallet`;
+`ExternalSignerProvider` delegates to a caller-supplied signing callable.
+
+`AgentIdentity.provider` holds one. The older `AgentIdentity.wallet` is
+deprecated and removed in v0.6.0.
+
+Because a provider signs BEFORE submission, the transaction must be
+autofilled and re-signed on every retry — see `tx_submit.py` for why the
+stock `submit_and_wait` retry is not sufficient for a pre-signed
+transaction.
 
 ## 3. The on-chain decision flow
 
@@ -621,23 +638,29 @@ bumps.
                   │
                   ▼
 ┌──────────────────────────────────────┐
-│ Unit tests (160/160 passing)         │  tests/test_*.py
+│ Unit tests (255 passing, 6 skipped)  │  tests/test_*.py
 │ (mocked ledger, hermetic)            │  • test_credential, test_did, test_trust
 │                                      │  • test_authorization, test_audit
 │                                      │  • test_dashboard, test_dashboard_verify
 │                                      │  • test_registry
+│                                      │  • test_public_api
+│                                      │  • test_tx_submit_retry
+│                                      │  • test_wallet_provider
 │                                      │  • test_stress_harness_live_signerlist
 │                                      │  • test_stress_harness_scale
 │                                      │  • test_stress_harness_throughput
 └──────────────────────────────────────┘
 ```
 
-### 9.2 Offline tests (145 total)
+### 9.2 Offline tests
 
 ```bash
-/usr/bin/python3 -m pytest -x -q
-# 145 passed, 6 skipped in 4.54s
+python3 -m pytest -x -q
+# 255 passed, 6 skipped
 ```
+
+The 6 skipped are the live-XRPL integration tests, gated behind `RUN_LIVE=1`.
+Run them with `RUN_LIVE=1 python3 -m pytest tests/test_integration_ledger_live.py -v`.
 
 The 6 skipped tests are the integration tests that only run when the
 testnet is reachable AND `RUN_LIVE=1` is exported.

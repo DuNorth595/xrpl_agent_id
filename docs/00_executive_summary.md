@@ -1,7 +1,7 @@
 # xrpl_agent_id — Executive Summary
 
 **Identity & Trust** · XRP Ledger (XLS-70 Credentials + XLS-40d DIDs)
-**Validated on XRPL Mainnet** · 353 passing, 6 live-gated · MIT licensed
+**Mainnet-validated** · 353 passing · MIT licensed
 
 **Contact**
 S_DevLabs
@@ -39,7 +39,7 @@ Verifiers query the ledger. They see the credential, the issuer, the timestamp, 
 - **CredentialAccept:** `580B8CD7…243A` (ledger 21123062)
 - **DIDSet:** `A230469E…A3B3` (ledger 21123064)
 
-**Library state:** Full Python package, MIT licensed. **353 tests passing, 6 live integration tests gated behind `RUN_LIVE=1`.** Ergonomic API: `AgentIdentity.from_seed()`, `issuer.issue_credential()`, `agent.has_credential()`, `resolve_did()`, plus trust library: `TrustRegistry.require()/deny()/check()`.
+**Library state:** Full Python package, MIT licensed. **353 tests passing, 6 live integration tests gated behind `RUN_LIVE=1`.** The credential lifecycle was validated against XRPL mainnet on 2026-10-28; the live-gated tests run against XRPL testnet. Ergonomic API: `AgentIdentity.from_seed()`, `issuer.issue_credential()`, `agent.has_credential()`, `resolve_did()`, plus trust library: `TrustRegistry.require()/deny()/check()`.
 
 ## Why XRPL
 
@@ -59,7 +59,7 @@ Looking for three things:
 
 1. **Validation** from the XRPL community on the credential-type taxonomy (`KYC`, `EVAL`, `OPERATOR`, `COMPLIANCE`, etc.)
 2. **An early issuer partner** to run a pilot — any organization willing to issue credentials against real audit data
-3. **Testnet feedback** before mainnet launch
+3. **Mainnet validation** from institutions running their own issuance
 
 ---
 

@@ -114,13 +114,13 @@
   <p class="cover-tagline">Portable, vendor-independent identity for AI agents<br>XRPL native · MIT licensed</p>
   <div class="cover-divider"></div>
   <p class="cover-meta"><strong>Identity &amp; Trust</strong> · XRP Ledger (XLS-70 Credentials + XLS-40d DIDs)<br>
-  <strong>v0.4.3 · Credential expiry, acceptance and DID validation</strong> · 255 tests passing · Live on XRPL Testnet</p>
+  <strong>v0.5.0 · WalletProvider, fee ceiling, batch anchoring</strong> · 341 tests passing · Live on XRPL Testnet</p>
   <div class="cover-divider"></div>
   <p class="cover-contact">
     <strong>S_DevLabs</strong><br>
     <a href="mailto:S_DevLabs@outlook.com">S_DevLabs@outlook.com</a>
   </p>
-  <p class="cover-foot">Prepared 2026-09-30</p>
+  <p class="cover-foot">Prepared 2026-10-28</p>
 </div>
 
 <div style="page-break-after: always;"></div>
@@ -162,7 +162,7 @@ Verifiers query the ledger. They see the credential, the issuer, the timestamp, 
   </div>
 </div>
 <br>
-<strong>Library state:</strong> Full Python package, MIT licensed, <strong>v0.4.3</strong>. <strong>255 tests passing, 6 live integration tests gated behind <code>RUN_LIVE=1</code></strong> (XRPL testnet; credential expiry, DID roundtrip, authorization policy). <strong>v0.4.3 closed three silent correctness gaps</strong>: <code>CREDENTIAL_EXPIRED</code> is now emitted when an XLS-70 credential's <code>expiration</code> is in the past; a credential is not counted as accepted until the subject signs <code>CredentialAccept</code> (<code>lsfAccepted</code>); and DID documents are validated against the DID being resolved. Ergonomic API: <code>AgentIdentity.from_seed()</code>, <code>issuer.issue_credential()</code>, <code>agent.has_credential()</code>, <code>resolve_did()</code>.
+<strong>Library state:</strong> Full Python package, MIT licensed, <strong>v0.5.0</strong>. <strong>341 tests passing, 6 live integration tests gated behind <code>RUN_LIVE=1</code></strong> (XRPL testnet; credential expiry, DID roundtrip, authorization policy). <strong>v0.4.3 closed three silent correctness gaps</strong>: <code>CREDENTIAL_EXPIRED</code> is now emitted when an XLS-70 credential's <code>expiration</code> is in the past; a credential is not counted as accepted until the subject signs <code>CredentialAccept</code> (<code>lsfAccepted</code>); and DID documents are validated against the DID being resolved. Ergonomic API: <code>AgentIdentity.from_seed()</code>, <code>issuer.issue_credential()</code>, <code>agent.has_credential()</code>, <code>resolve_did()</code>.
 </div>
 
 <h2>Why XRPL</h2>

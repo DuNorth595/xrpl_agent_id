@@ -88,8 +88,14 @@ def test_version_info_tuple() -> None:
     assert all(isinstance(x, int) for x in info)
 
     major, minor, patch = info
-    expected_prefix = f"{major}.{minor}.{patch}"
-    assert xrpl_agent_id.__version__.startswith(expected_prefix), (
+    expected = f"{major}.{minor}.{patch}"
+    # Exact match, not a prefix. A prefix check would let (0, 4, 0) pass
+    # against "0.5.0" -- which is exactly the drift this test exists to
+    # catch. A pre-release suffix ("0.5.0rc1") is still allowed.
+    assert xrpl_agent_id.__version__ == expected or (
+        xrpl_agent_id.__version__.startswith(expected)
+        and not xrpl_agent_id.__version__[len(expected)].isdigit()
+    ), (
         f"version_info {info} doesn't match __version__ {xrpl_agent_id.__version__!r}"
     )
 

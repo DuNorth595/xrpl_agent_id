@@ -1,7 +1,7 @@
 # xrpl_agent_id — Executive Summary
 
 **Identity & Trust** · XRP Ledger (XLS-70 Credentials + XLS-40d DIDs)
-**Live on XRPL Testnet** · 255 passing, 6 live-gated · MIT licensed
+**Live on XRPL Testnet** · 341 passing, 6 live-gated · MIT licensed
 
 **Contact**
 S_DevLabs
@@ -39,13 +39,14 @@ Verifiers query the ledger. They see the credential, the issuer, the timestamp, 
 - **CredentialAccept:** `580B8CD7…243A` (ledger 21123062)
 - **DIDSet:** `A230469E…A3B3` (ledger 21123064)
 
-**Library state:** Full Python package, MIT licensed. **255 tests passing, 6 live integration tests gated behind `RUN_LIVE=1`.** Ergonomic API: `AgentIdentity.from_seed()`, `issuer.issue_credential()`, `agent.has_credential()`, `resolve_did()`, plus trust library: `TrustRegistry.require()/deny()/check()`.
+**Library state:** Full Python package, MIT licensed. **341 tests passing, 6 live integration tests gated behind `RUN_LIVE=1`.** Ergonomic API: `AgentIdentity.from_seed()`, `issuer.issue_credential()`, `agent.has_credential()`, `resolve_did()`, plus trust library: `TrustRegistry.require()/deny()/check()`.
 
 ## Why XRPL
 
 - **Both primitives already live on mainnet** — XLS-40d since 2022, XLS-70 since 2024. Zero protocol changes required.
 - **3–5 second finality** — fast enough for agent-to-agent commerce
 - **Sub-cent fees** — cheap enough for high-frequency agent activity
+- **No new chain, no new consensus rule, no validator vote** — just the existing primitives, packaged for AI developers
 - **Native hooks for future enhancement** — credential-aware transactions, native DID resolution RPC, MPC signers are all on the roadmap without requiring forks
 
 ## Why Now
@@ -62,4 +63,4 @@ Looking for three things:
 
 ---
 
-*Prepared 2026-09-28*
+*Prepared 2026-10-28*

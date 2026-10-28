@@ -6,312 +6,303 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.4.2] - 2026-10-22
+## [0.5.0] - 2026-10-28
 
-Documentation and packaging correctness. No library behaviour changed.
+Mainnet readiness. `WalletProvider` and the `submit_with_retry` rewrite
+shipped; the fee ceiling, batch anchoring, and the corrected cost model
+landed with them.
 
 ### Fixed
-- **Version drift.** `pyproject.toml` shipped 0.4.1 while the README reported
-  0.4.0 in eight places, `__init__.py` carried a 0.4.0 literal, and
-  `PUBLIC_API.md` contradicted itself. All now agree on 0.4.1.
-- **CI was green because of a stale assertion.**
-  `tests/test_dashboard_version_routes.py` pinned the wrong version, so the
-  dashboard test passed instead of catching the drift. It now asserts the real
-  value, and all four surfaces are covered.
-- **Removed a phantom feature.** The README and `pyproject.toml` advertised an
-  `[mcp]` extra and an `xrpl_agent_id.mcp` module. Neither exists — no `mcp.py`,
-  no FastMCP reference. It was the first command in the getting-started block and
-  installed a dependency that did nothing.
-- '6 reason codes' listed 7; the code defines 8. `CREDENTIAL_TYPE_DENIED` and
-  `CREDENTIAL_EXPIRED` were missing — the latter is this release line's headline fix.
-- '124 offline tests' corrected to 201 (measured).
-- Removed a stale pytest transcript showing 'collected 12 items / 12 passed'
-  from an early version; replaced with real output.
-- Project Structure listed 3 modules and 1 test file; the real tree is 12 modules
-  plus a 5-module `dashboard/` package and 15 test modules.
-- Public API listed 5 names; `__all__` has 19. All are now listed.
-- Module map named the audit class `Journal`; it is `AuditLog`.
-- Removed a dead link to `research/07_existing_repos_assessment.md` — no such
-  directory exists.
-- 'Testnet Integration Tests (planned)' named files that do not exist and the
-  wrong environment variable; the real suite is
-  `tests/test_integration_ledger_live.py` gated on `RUN_LIVE=1`.
+- **The cost of using agent ID was documented as if it were a charge.** The
+  README led with *"locks roughly 18 XRP of reserve, **never refunded**"* and
+  *"costs about **1.4 XRP**."* Reserve is a balance requirement, not an
+  expense — XRPL releases it when the objects are deleted — and the real
+  spend per identity is ~0.02 XRP. The corrected figures are now the lead
+  number, and the misleading "never refunded" claim is gone.
+- **`docs/CHANGELOG.md` and the root `CHANGELOG.md` had diverged.** The root
+  copy was current; the `docs/` copy stopped at 0.4.2 and never had the
+  0.4.3 notes — and the README linked to the stale one twice while the
+  current one was linked from nowhere. There is now one changelog, at
+  `docs/CHANGELOG.md`, and the root file points at it.
+- **Stale test counts.** The README and the executive summary both said
+  "255 passed" against a suite that now runs 341.
+- **`docs/ARCHITECTURE.md` was pinned to v0.3.2** — four versions behind, and
+  missing `wallet.py`, `tx_submit.py`, `merkle.py`, `anchor_batch()`,
+  `batch_proof()`, and the fee ceiling entirely.
 
 ### Added
-- **REUSE/SPDX compliance made real.** The README advertised an
-  SPDX-REUSE-compliant badge, but there was no `LICENSES/` directory, no
-  `REUSE.toml` and no `.reuse/` — `reuse lint` failed, and 29 of 78 tracked files
-  carried no license information. Added `LICENSES/MIT.txt` and `.reuse/dep5`,
-  plus a `reuse lint` CI job so the badge cannot silently rot again.
-- `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, GitHub issue and PR templates.
-- Release table entries for v0.4.1 and v0.3.0, both of which existed without one.
+- **`tests/test_read_only_authorization.py`** pins the invariant that the
+  authorization and trust paths never submit a transaction. It fails if a
+  future change makes the hot path write to the ledger.
+- **`docs/ARCHITECTURE.md` §2.12–§2.13** document `tx_submit.py` and
+  `merkle.py`.
+
+
+### Breaking changes
+- **Python 3.9 is no longer supported.** `requires-python` is now `>=3.10` and
+  the `Programming Language :: Python :: 3.9` classifier is removed. The
+  `xrpl-py` dependency is pinned to `>=5.0,<6`, and xrpl-py 5.x itself requires
+  Python >= 3.10.
+
+  *Why now:* the dependency was declared `xrpl-py>=4.5.0` — unbounded. Because
+  xrpl-py 5.x requires Python >= 3.10, a fresh install on Python 3.9 resolved to
+  xrpl-py 4.x while an install on Python 3.10+ resolved to 5.x. The same release
+  of this package therefore ran against **two major versions of its only
+  dependency**, and only one of them was ever tested. An institution
+  standardizing on a supported Python got xrpl-py 5.x; the 3.9 path was an
+  untested minority.
+
+  This is a *dependency* constraint, not a syntax one: every module using
+  `X | None` annotations carries `from __future__ import annotations`, so those
+  annotations are never evaluated at runtime.
+
+  *Migration:* upgrade to Python 3.10 or newer and reinstall. No code changes
+  are required — the package's own API is unchanged by this release.
+
+### Added
+- **Batch anchoring — one transaction per batch instead of per decision.**
+  `xrpl_agent_id/merkle.py` provides a Merkle tree (domain-separated
+  leaves, `SHA256(left || right)` interior nodes, odd node promoted
+  unchanged) with `merkle_root`, `merkle_proof` and `verify_inclusion`.
+  `AuditLog.anchor_batch()` collects the decisions that have not been
+  anchored and puts them in a single transaction carrying the batch's
+  Merkle root; `AuditLog.batch_proof()` returns the inclusion proof for
+  any anchored decision.
+
+  A verifier needs only the leaf, the proof path, and the anchored root
+  — not the operator's database — so the batch is an audit rather than a
+  claim. The proof path encodes direction, so a reordered or truncated
+  path fails verification.
+
+  At one million decisions a day this is the difference between roughly
+  $6,650/day and roughly $6.65/day at the median fee. See
+  `XRPL_COST_MODEL.md`.
+
+- **`Authority.issue_credential_cheapest()`** — issues a credential
+  without the optional DID object, for two transactions instead of
+  three. XLS-70 defines the `Credential` object's `Subject` and `Issuer`
+  as `AccountID`s; a DID object is *recommended* for W3C VC compliance,
+  not required, and the DID is derivable from the address with no
+  ledger access. A DID object can still be published later in one
+  transaction.
+
+  33% fewer setup fees, and 1.2 XRP of lockup instead of 1.4 XRP.
+
+### Fixed
+- **Mainnet reserve and fee figures were stale by ~100x.** `docs/MAINNET_DECISION.md`
+  §1 and the README stated a 200 XRP base reserve and 2 XRP per owned ledger
+  object. Those were the pre-2024 values. Reserves were lowered 10x by validator
+  vote on 2024-12-02 to **1 XRP base / 0.2 XRP per object** (see
+  [Lower Reserves Are In Effect](https://xrpl.org/blog/2024/lower-reserves-are-in-effect)).
+  Figures are now verified against the live mainnet ledger via `server_info`
+  (`reserve_base_xrp: 1.0`, `reserve_inc_xrp: 0.2`, `base_fee_xrp: 1e-05`).
+  The per-transaction cost is quoted as **10 drops base** with a note to budget
+  against the ledger median rather than the base. A one-agent identity costs
+  ~1.4 XRP, not the ~2,080 XRP the old numbers implied for a ten-agent
+  deployment. `MAINNET_READINESS_AUDIT_2026-10-27.md` §1.2 is corrected too --
+  it had asserted the old figure was a protocol constant.
+
+### Added
+- **`on_chain_proof.signer`** — the dashboard's `/api/verify` now names the
+  account that signed the transaction carrying the memo, so the response is
+  self-contained and a reviewer does not have to open the explorer to find
+  out who produced it. `_fetch_memo_from_tx` returns `(memo_hex, signer)`.
+
+  The signer is the **audit mirror key**, not the credential issuer: the
+  mirror deliberately runs on its own key so the issuer's key stays out of
+  a high-volume logging path. A memo proves audit-service provenance, not
+  issuer intent.
+
+### Added
+- **`WalletProvider` — a pluggable signer for XRPL transactions.** New public
+  names: `WalletProvider` (the protocol), `SeedWalletProvider` (wraps an
+  in-process `xrpl.wallet.Wallet`), and `ExternalSignerProvider` (delegates to
+  a caller-supplied signing callable, for a KMS, HSM, or hardware wallet).
+
+  The interface is three members — `classic_address`, `public_key`, and
+  `sign(tx)` — and is structural, so any object with those members satisfies
+  it. A KMS-backed provider therefore needs no key material in this process:
+  it signs the canonical XRPL signing bytes and returns a signature.
+
+  This is what makes the library usable in an institutional setting, where
+  the signing key lives in a key management system rather than in the
+  application. `xrpl-py` binds signing to a concrete `Wallet` object and
+  offers no such interface; the ledger side already supported it, because
+  `rippled`'s `submit` accepts a pre-signed `tx_blob` and `xrpl-py`'s
+  `submit_and_wait` accepts an already-signed transaction with `wallet=None`.
+
+- **`ExternalSignerProvider`** takes a signing callable and does the
+  XRPL-specific encoding. It performs no internal retry and caches no
+  signatures, so there is exactly one retry story rather than two.
 
 ### Changed
-- `SESSION_2026-09-29.md` moved to `docs/internal/`; it is a dated internal work
-  log and does not belong in a public repository root.
+- **`xrpl-py` is pinned to `>=5.0,<6`.** The upper bound is deliberate: a major
+  bump in the dependency is a breaking change for this package and should be
+  made deliberately, not absorbed silently by the resolver.
+- **CI matrix is now Python 3.10, 3.11, 3.12, and 3.13** — matching xrpl-py 5.x's
+  supported range exactly. 3.9 was removed; 3.13 was added, so an adopter on a
+  current Python is not the first to find a break.
+- **A new `resolve` CI job reports the resolved dependency versions**, so the
+  xrpl-py version actually in use is visible in the CI log rather than implied.
+- **README badges** now read "Python 3.10+" and "xrpl-py 5.0+".
+- **`CONTRIBUTING.md`** documents the 3.10–3.13 matrix. Its expected test count
+  was also corrected from 201 to 227, which was stale.
+- **`AgentIdentity.wallet` is now `AgentIdentity.provider`.** The field holds
+  a `WalletProvider` rather than a concrete `Wallet`, because a provider that
+  signs externally has no wallet to hold. The old name still works and emits
+  a `DeprecationWarning`; it will be **removed in v0.6.0**, giving two
+  releases of overlap. `AgentIdentity.from_seed` is unchanged in behaviour —
+  it still produces an identity backed by an in-process wallet.
+
+- **`AgentIdentity.seed` is deprecated** and will be removed in v0.6.0. A
+  provider that signs externally has no seed at all, so this property cannot
+  be part of the identity contract — only of the in-process-wallet case. On a
+  `SeedWalletProvider` it still works, with a warning; on any other provider
+  it raises `AttributeError` with a message that says so.
+
+- **`XRPLMirror` (in `xrpl_agent_id.audit`) holds a provider** under the
+  attribute name `provider`, for the same reason. Its `from_seed` is
+  unchanged.
+
+- **Provider-mode submission re-autofills and re-signs on every attempt.**
+  This is a behavioural fix, not just a refactor. `xrpl.transaction.submit_and_wait`
+  autofills an *unsigned* transaction on every call, so resubmitting the same
+  transaction object is safe. But its internal `_get_signed_tx` returns
+  immediately when a transaction is already signed — and a provider signs
+  before submitting. A retry would therefore have resubmitted the identical
+  stale blob, with the original `LastLedgerSequence` still baked in, failing
+  with `tefMAX_LEDGER` exactly when the retry was most needed. Measured
+  autofill horizon on public testnet: ~19 ledgers (~76 s) against a retry
+  backoff of 2 s then 4 s — normally inside the window, but not on a
+  congested ledger, which is when transient errors occur.
+
+  This is the `tefPAST_SEQ` failure mode of v0.4.2 reappearing in a new
+  place, and it is now covered by a regression test.
+
+### Fixed
+- **A test asserted on CPython's exact error wording and broke on Python 3.14.**
+  `tests/_smoke/test_quickstart_api.py` asserted that a `TypeError` message
+  contained the string `"can't be used in 'await' expression"`. CPython 3.14
+  changed that message to `"'MagicMock' object can't be awaited"`, so the
+  quickstart smoke tests errored on 3.14 even though the library behaved
+  correctly. The assertion now checks the *intent* — that the `TypeError`
+  came from awaiting the mock rather than from the library's own argument
+  validation — instead of a CPython-version tripwire.
+
+  No library behaviour changed. The 227-test suite passes on Python 3.11 and
+  3.14 with xrpl-py 5.2.0.
+- **A quickstart smoke test depended on CPython's exact error wording.** It
+  asserted that a `TypeError` message contained `"can't be used in 'await'
+  expression"`; CPython 3.14 changed that to `"'MagicMock' object can't be
+  awaited"`, so the test errored on 3.14 despite correct library behaviour.
+  The assertion now checks the intent — that the `TypeError` came from
+  awaiting the mock rather than from the library's own argument validation.
+
+- **The same smoke test no longer relies on a bare `MagicMock` standing in
+  for a network client.** With a provider, the library autofills and signs
+  before submitting, and autofill asks the client for `account_info`,
+  `server_info`, fee and ledger data — so a bare mock is no longer a usable
+  stand-in. The test now stubs the submission directly, which is both
+  simpler and more honest about what the test actually checks (the documented
+  call shape, not reaching the ledger).
+
+## [0.4.3] - 2026-10-23
+
+### Security
+- **Credentials were treated as accepted when they were not.** XRPL separates a
+  credential *existing* from a credential being *accepted*: `lsfAccepted` is only
+  set when the subject signs `CredentialAccept`, and XLS-70 says plainly that a
+  credential "should not be considered 'valid' until it has been accepted." The
+  library checked existence and called it acceptance, so a credential the subject
+  never accepted could be counted as held. `credential_is_accepted()` now reads
+  the `lsfAccepted` bit (`0x00010000`) from the raw ledger node and fails closed —
+  an unparseable response is treated as not accepted, so malformed data cannot
+  widen access.
+- **Credential expiry was never checked on the real path.** `_parse_credential_obj`
+  did not carry the ledger's `Expiration` field onto the `Credential` object, so
+  `authorization.py`'s `if cred.expiration is not None` guard was always False for
+  any ledger-parsed credential and the `CREDENTIAL_EXPIRED` branch was
+  unreachable. An expired credential still counted as valid. `Expiration` is a
+  real optional `UInt32` per XLS-70 and is now parsed.
+- **DID documents were not validated.** `did_from_account()` interpolated any
+  string into a DID, so `did_from_account("../../etc/passwd")` produced a
+  well-formed DID pointing at an attacker-chosen path. Separately, a DID document
+  was accepted whatever its `id` claimed — account A could publish a document
+  whose `id` was account B's, and any consumer keying on `doc.id` would attribute
+  B's keys to A. That is identity spoofing requiring no key material. The
+  document's `id` must now match the DID being resolved.
+- **A missing ban file silently allowed everyone.** A missing `banned.json`
+  returned an empty deny-list with no indication anything was wrong, so a typo, a
+  moved file, or running from a different working directory meant every banned
+  agent was allowed — a security control failing open. The default path now
+  resolves against the user's home directory rather than the CWD, and a missing
+  file emits a `RuntimeWarning` naming the resolved path. A `strict=True` option
+  raises instead of warning; it is opt-in because the file is untracked and
+  defaulting strict would break first use for every new adopter.
+- **The dashboard reported unverifiable decisions as verified.** `decision_id` is
+  an *unsalted* SHA-256 content hash, so anyone who could read a decision could
+  compute its id and hand-craft a memo reproducing it — the endpoint returned
+  `verified: true` for a caller-supplied memo, demonstrating nothing had reached
+  the ledger. `verified` is now true only when `on_chain_proof` is present. The
+  separate `local_record_matched` field still reports the local match, so the
+  distinction stays visible. The same commit stops `/api/files` returning absolute
+  paths (which disclosed the operator's home directory layout) and replaces the
+  three-filename seed denylist with pattern-based matching across seeds,
+  secrets, wallets, keystores, mnemonics, keys, and PEM files.
+
+Full disclosure and reasoning: `docs/03_known_issues.md`.
+
+### Fixed
+- **Live-ledger tests failed roughly 1 run in 4 on public Testnet and Devnet**
+  with `tefPAST_SEQ`. A ledger closed between autofill and validation, so the
+  transaction's 75-ledger `LastLedgerSequence` window expired before it landed.
+  This was reproducible on freshly cloned `main`, not a local-worktree artifact.
+  New `xrpl_agent_id/tx_submit.py` provides `submit_with_retry()` — wired into
+  all six submit sites across `identity.py`, `authority.py`, and `audit.py`.
+  Transient ledger races retry with linear backoff (2s, 4s); permanent errors
+  (`telINSUF_FEE_P`, `temBAD_AMOUNT`, …) still raise immediately.
+  Retry is meaningful because `xrpl.transaction.submit_and_wait` autofills on
+  every call, re-deriving `Sequence` and `LastLedgerSequence`; a regression test
+  asserts that default so the retry cannot silently degrade into resubmitting a
+  dead window forever. Measured after the fix: 7/7 clean live runs on Testnet
+  (was 5/6), and failing runs no longer burn ~130s in a retry loop.
+- **A spendable-format XRPL seed was published in a public test.**
+  `tests/test_stress_harness_throughput.py` hardcoded a valid-format ed25519
+  seed, which resolves to a real `r...` address. The account has never been
+  funded (`actNotFound` on testnet), so no funds were ever at risk — but
+  anyone could fund it, and the literal tripped secret scanners. The fixture now
+  generates its seed at runtime with `Wallet.create()`, so there is nothing to
+  steal and nothing to allowlist. The `ALLOWLIST` entry that existed only to
+  excuse it is gone. (The seed literal is deliberately not reproduced here —
+  quoting it would reintroduce exactly what this entry removes.)
+
+### Added
+- This CHANGELOG. `xrpl_agent_log` had one; this package did not.
+- `tests/test_tx_submit_retry.py` — 10 tests covering transient-vs-permanent
+  error classification, retry counts, backoff monotonicity, the
+  `submit_and_wait`-autofills invariant, and a guard that fails if any library
+  module reintroduces a direct un-retried `submit_and_wait` call.
+
+## [0.4.2] - 2026-10-22
+
+- Version metadata synced with `pyproject.toml`; changelog added.
+
+## [0.4.1] - 2026-10-01
+
+- CI pinned to `ubuntu-24.04` to avoid `ubuntu-latest` drift.
+- PII scrub: absolute path and Telegram identifier redacted from the tree.
+- `tests`: version and path assertions made portable across clone locations.
 
 ## [0.4.0] - 2026-09-30
 
-### Fixed
-- **`CREDENTIAL_EXPIRED` is now emitted** when a required credential's `expiration` (XLS-70, Ripple epoch seconds) is in the past. The reason code was defined since v0.3.x but nothing ever produced it — expired credentials silently passed trust checks. Fix lives in `xrpl_agent_id/authorization.py::AuthorizationPolicy.evaluate()`. Behaviour is pinned by 6 new tests in `tests/test_authorization.py::TestCredentialExpiry`.
+- Enforced XLS-70 credential expiration.
+- Import cleanup and doc consistency pass; `pyproject.toml`, `README.md`, and
+  `.gitignore` prepared for release.
 
-### Changed
-- **Version: 0.3.3 → 0.4.0** (minor bump; the expired-credential bug was a silent correctness gap documented in `docs/MAINNET_DECISION.md` §3 as a mainnet blocker).
-- `xrpl_agent_id_dashboard/0.2.0` → `xrpl_agent_id_dashboard/0.3.0` (tracks library version).
+## [0.3.0]
 
-### See also
-- `docs/MAINNET_DECISION.md` — staged rollout plan. v0.4.0 closes blocker §3 (expiry). Blocker §2 (KMS / hardware wallet) and §4 (signed audit memos) remain on the v0.5.0 path.
+- Stress-test tooling and the throughput/error-classification harness.
 
-## [0.3.3] - 2026-09-30
+## [0.2.4]
 
-### Added
-- `docs/USE_CASES.md`, `docs/QUICKSTART.md` — public-facing documentation.
-- `xrpl_agent_id/PUBLIC_API.md` — versioned public-API contract.
-- `XRPL_AGENT_ID_VERSION` and `XRPL_AGENT_ID_VERSION_INFO` canonical aliases.
-- `python -m xrpl_agent_id --version` and `--api` CLI flags.
-- Dashboard routes: `GET /api/version`, `GET /api/liveness`, `GET /api/monitor` (renamed from `/api/health`). `GET /api/health` retained as deprecated alias.
-
-## [0.3.2] - 2026-09-29
-
-### Added
-- **`/api/verify` endpoint** — `GET /api/verify?memo_hex=…` or `?tx_hash=…&network=testnet|mainnet`
-  - Takes a raw memo hex blob OR an XRPL tx hash; validates the memo `app` tag is `xrpl_agent_id_audit`
-  - Looks up the matching `auth_decisions` row by `decision_id` (preferred) or `mirrored_tx` (fallback for legacy rows)
-  - Returns full decision context: `allow`, `reasons` (with `code` + `detail` + `issuer`), `extra`, `request`, ISO timestamp, plus `on_chain_proof` (tx hash, network, explorer URL) when given a tx hash
-  - Clean error codes: `400` bad input / wrong app, `404` row or tx not found, `502` XRPL RPC failure
-- **`scripts/backfill_auth_decisions.py`** — copies decisions from a results-DB into the dashboard DB, deduping on `mirrored_tx`. Used to seed the dashboard with v0.3.1 results.
-- **`tests/test_dashboard_verify.py`** — 12 new hermetic tests covering `_decode_memo_hex` (4 cases) + direct endpoint (7 cases) + HTTP round-trip (3 cases). Total 145 offline tests passing.
-- **Schema migration helper** — `xrpl_agent_id/dashboard/db.py::_migrate()` runs idempotently on `open_db()` to add new columns (`decision_id`) before CREATE INDEX statements.
-
-### Changed
-- **`xrpl_agent_id/audit.py`** — `XRPLMirror.APP_TAG` and `SCHEMA_VERSION` promoted to module-level constants (single source of truth for memo `app`/`v` fields). New `compute_decision_id(decision)` helper exposed for reuse.
-- **`AuditLog.record()`** — now computes and stores `decision_id` (SHA-256 of canonical-JSON decision dict) at insert time, so the SQLite row and the on-chain memo always share the same `decision_id`.
-- **`xrpl_agent_id/dashboard/db.py`** — `auth_decisions` schema adds `decision_id TEXT` column + index; legacy rows can be backfilled by the new script.
-
-### Fixed
-- **§10 "known limitation" resolved** — the v0.3.1 stress report flagged that "we cannot reverse-lookup the SQLite row from the tx hash." `/api/verify?tx_hash=…` now does exactly that, including the `mirrored_tx` fallback for legacy rows that pre-date the `decision_id` column.
-
-## [0.3.1] - 2026-09-29
-
-### Added
-- **On-chain multi-sig for `controller_banned` role** — `setup_live_agents`
-  now publishes a real `SignerListSet` on the ledger when an agent is
-  configured for the `controller_banned` role. `AgentRegistry` resolves
-  controllers from this list, so `AuthorizationPolicy` hits the
-  `CONTROLLER_BANNED` code path against real on-chain state (closes the
-  v0.3.0 stress-test gap documented in `STRESS_TEST_v0.3.0.md` §3).
-  - Two shapes supported via `LiveAgentSpec.controller_banned_shape`:
-    `compromised` (default — banned addr is the sole signer, realistic
-    compromise scenario) and `quarantined` (banned + sentinel at 1:1,
-    quorum 2, account is operationally frozen but still detected).
-  - `_setup_controller_banned_onchain()` in `scripts/stress_harness_live.py`
-    builds, submits, and verifies the SignerListSet, with graceful
-    degradation on failure (agent rolls to `no_creds`, original role
-    preserved on the spec for the audit log).
-- **Live smoke test** — `scripts/live_signerlist_smoke.py` funds 3 wallets,
-  publishes one SignerListSet per shape, and verifies each on-chain via
-  `account_objects type=signer_list`. Both shapes confirmed live on testnet
-  with `tesSUCCESS` and the expected quorum/entries.
-- **Unit tests** — `tests/test_stress_harness_live_signerlist.py` covers
-  payload construction, error handling, and wiring into `setup_live_agents`
-  for both shapes (9 new tests, all hermetic via mocked ledger).
-- **Design doc** — `docs/CONTROLLER_BANNED_MULTISIG.md` documents the XRPL
-  constraint that drove the design (master cannot appear in its own
-  SignerList), the two valid shapes, and the live verification results.
-
-### Fixed
-- The `controller_banned` role in the v0.3.0 stress run was incorrectly
-  marked ALLOW because no SignerList was published. The harness now
-  exercises the on-chain path. Caught by reviewing the v0.3.0 report's
-  own honest note (§3).
-
-## [0.3.0] - 2026-09-29
-
-### Added
-- **Authorization layer** — `xrpl_agent_id/authorization.py` composes
-  registry, bans, and require/deny rules into a single `AuthorizationPolicy`
-  that returns ALLOW/DENY with stable reason codes
-  (`OK`, `AGENT_BANNED`, `CONTROLLER_BANNED`, `NO_CREDENTIALS`,
-  `CREDENTIAL_MISSING`, `CREDENTIAL_REVOKED`, `STALE_CREDENTIAL`)
-- **Agent registry** — `xrpl_agent_id/registry.py` resolves any DID/address
-  to its full ledger state (DID, controllers via SignerList, all credentials
-  via `AccountObjects type=credential`)
-- **Banned agent registry** — `xrpl_agent_id/banned.py` org-level deny list
-  with reasons + expirations + JSON persistence
-- **Audit log with XRPL mirror** — `xrpl_agent_id/audit.py` SQLite-backed
-  decision log + optional on-chain memo mirror (1-drop self-payment with
-  decision hash, `Memos[0].MemoData`)
-- **Stress harness (offline + live)**
-  - `scripts/stress_harness.py` — `sim` mode with mocked ledger, 12 roles
-  - `scripts/stress_harness_live.py` — real testnet, mixed roles, full audit
-    mirror end-to-end. Graceful degradation on transient ledger errors.
-- **Dashboard authz panel** — `/api/authz/events` and `/api/authz/stats`
-  endpoints feed the dashboard's Authorization Decisions section
-  (count cards + visual ALLOW/DENY bar + per-decision list with role tags
-  and reason chips)
-- **Dashboard restart script** — `scripts/restart_dashboard.sh` kills stale
-  PIDs and restarts the dashboard with the current source tree
-- **Stress test report** — `docs/STRESS_TEST_v0.3.0.md` documents the live
-  run with all 12 tx hashes (6 CredentialCreate/Accept + 6 audit-mirror memos)
-  verified on `s.altnet.rippletest.net:51234`
-
-### Changed
-- `xrpl_agent_id/trust.py` — `_get_agent_credentials` no longer a stub;
-  uses real ledger enumeration via `xrpl.models.requests.AccountObjects`
-- `xrpl_agent_id/dashboard/server.py` — new endpoints; reads from the same
-  `xrpl_agent_id_dashboard.db` that the harness writes to
-
-### Fixed
-- `audit.XRPLMirror.submit()` — XRP rejects self-payments and rejects
-  0-XRP to non-ACCountRoot destinations. Now funds a separate sink wallet
-  and sends a 1-drop payment. Switched from `xrpl.core.hash` (not in 4.5.0)
-  to stdlib `hashlib.sha256`.
-
-### Test coverage
-- **124 offline tests pass, 6 skipped** (was 47 before v0.3.0)
-- All ledger interactions mocked; CI-safe
-- Live harness is the only network-touching path
-
-## [0.2.4] - 2026-09-28
-
-### Changed
-- **Public contact information migrated from personal to org** (`S_DevLabs@outlook.com`)
-  - `docs/00_executive_summary.md` and `docs/00_executive_summary.html`: contact block now reads `S_DevLabs / S_DevLabs@outlook.com`. Personal name, personal email, and personal phone removed from these user-facing surfaces.
-  - `README.md`: added `Organization: S_DevLabs (Strategic Development Labs)` and `Contact: S_DevLabs@outlook.com` rows in the header table.
-- License/copyright headers (SPDX, `pyproject.toml` `authors`) keep `Justin Douglas` as the legal author — that's the correct attribution per the project's copyright model.
-
-### Added
-- **`scripts/build_summary_pdf.py`** — single-source-of-truth builder for the executive summary PDF, reads the hand-crafted HTML directly (no pandoc dep), prints via Playwright. Use this whenever `00_executive_summary.html` is edited so the PDF stays in sync.
-
-### Fixed
-- Older Desktop snapshot PDFs (`v0.1.0`, `v0.2.0`, `v0.2.1`, `v0.2.2`) had the old contact baked in. Deleted those stale binaries — the source-of-truth MD/HTML in those folders has been redacted, and the latest snapshot's PDF is regenerated from the clean source.
-
-## [0.2.3] - 2026-09-28
-
-### Added
-- **S_DevLabs branding in dashboard header** — SVG hexagon + stylized S mark (teal-to-deep-blue gradient, matches the S_DevLabs logo) renders to the left of the title
-- **"BY S_DEVLABS" pill tag** next to the dashboard title (teal accent, uppercase, rounded)
-- Brand mark is inline SVG (no external assets), mirrors the official logo's gradient
-
-## [0.2.2] - 2026-09-28
-
-### Added
-- **Three-column "Tracked agents" layout** — Subject / Issuer / Evaluator as separate side-by-side columns
-  - Each column is a `col-4` panel with color-coded heading (Subject teal, Issuer purple, Evaluator amber)
-  - Agents are bucketed by `role` in the watchlist (`subject`, `issuer`, `evaluator`)
-  - Empty columns show "No <role> watched." instead of the whole panel going blank
-- **Connection health moved to header** as a clickable pill
-  - Pill shows status dot + `connected · N events` + secondary count `M events` (events buffered)
-  - Click expands a dropdown popover with the full event log (When / Event table)
-  - × close button + click-outside-to-dismiss
-
-### Changed
-- **Watchlist role values** renamed for clarity: `agent` → `subject` (the agent being verified). Evaluator gets its own role value rather than being aliased as `issuer` with a label.
-- `backfill.py` seeds the watchlist with the new role names so re-running it stays consistent.
-- `xrpl_agent_id/__version__` bumped to `0.2.2`
-
-### Fixed
-- Live DB row mismatches: `rhuboR2n…` (Subject) was incorrectly `role="agent"`, `rEmcSP…` (Evaluator) was `role="issuer"` with label "Evaluator". Now correctly `subject` and `evaluator`.
-
-## [0.2.1] - 2026-09-28
-
-### Added
-- **Dashboard "Project Files" panel** — exposes the on-disk project tree to the UI
-  - New `/api/files` endpoint walks `PROJECT_ROOT`, returns 52 files (no `.db`, `.pyc`, sidecars, secrets)
-  - Grouped, collapsible display: `xrpl_agent_id/` (15) · `tests/` (6) · `scripts/` (3) · `docs/` (8) · `results/` (3) · root files (17)
-  - Each file has a "open" link → `file://` URL → opens in Finder
-  - Refreshes once on load + every 60s (files change rarely)
-- **`api_files()`, `_walk_project()`, `_pkg_version()`** — pure server-side helpers, no I/O outside the project tree
-- **2 new offline tests** (`test_files_api_lists_project`, `test_files_api_excludes_secrets_and_artifacts`) — 45 → 47 tests passing
-
-### Changed
-- `xrpl_agent_id/__version__` bumped to `0.2.1`
-
-## [0.2.0] - 2026-09-28 (build-out #2)
-
-### Added
-- **`xrpl_agent_id/dashboard/`** — live agent-ID dashboard (stdlib-only HTTP)
-  - `dashboard/db.py` — SQLite schema (identity_events, credential_events, watchlist, monitor_events)
-  - `dashboard/monitor.py` — XRPL testnet websocket subscriber, filters for CredentialCreate/Accept/Delete + DIDSet/DIDDelete
-  - `dashboard/server.py` — stdlib HTTP server with JSON API (`/api/summary`, `/api/credentials`, `/api/identities`, `/api/watchlist`, `/api/agent_state`, `/api/health`)
-  - `dashboard/templates/index.html` + `dashboard.js` — single-page dark-theme UI, polled every 2s
-  - `dashboard/backfill.py` — seeds DB from existing `results/scenario_*.json` files
-- **`xrpl_agent_id/trust.py`** — new module: trust library layer
-  - `TrustRegistry` — composable trust policy with `.require()` and `.deny()` rules
-  - `TrustPolicy`, `TrustCheckResult` — dataclasses for rule + result representation
-  - `TrustRegistry.check(agent_did)` — one-call policy verification
-  - Returns `TrustCheckResult` with `.satisfied`, `.missing_required`, `.denied_held`, `.summary()`
-- **`Authority.verify_set(agent_did, required)`** — batch credential verification
-  - Returns `VerificationResult` with per-credential pass/fail + missing list
-- **`Authority.revoke_credential(subject, credential_type)`** — XLS-70 `CredentialDelete` wrapper
-- **Public API surface** (`xrpl_agent_id/__init__.py`):
-  - `TrustRegistry`, `TrustPolicy`, `TrustCheckResult`, `VerificationResult` exported
-- **`scripts/run_trust_scenarios.py`** — 11-step trust library scenario on real testnet
-- **`scripts/sync_to_desktop.py`** — mirrors LIFE_MEMORY project to `~/Desktop/XRPL_AGENT_ID/<version>/` per version (read-only Desktop archive)
-- **Test coverage expansion:** 27 → 45 offline tests (16 trust + 2 dashboard)
-- **`docs/02_testing_log.md`** — comprehensive testing log with bugs found + fixes
-- **`docs/03_dashboard.md`** — dashboard usage guide
-- Live testnet: 6/6 live tests passing
-
-### Fixed
-- **`Authority.revoke_credential()` v1 design flaw**: initial implementation used a second `CredentialCreate` for revocation, but XLS-70 enforces `(issuer, subject, credential_type)` uniqueness → `tecDUPLICATE`. Rewrote to use `CredentialDelete` (XLS-70's native delete).
-- **Default revocation URI**: was too long; fixed to compact `revoke://<short-tails>` with safety fallback.
-- **`scripts/run_trust_scenarios.py`**: `.url` → `.json_rpc_url` (matches actual NetworkEndpoint attribute).
-- **Test isolation**: test_06 no longer depends on test_03 / test_05 state — issues its own fresh credential.
-
-### Known issues
-- `submit_and_wait` intermittently hits `tefPAST_SEQ` when called immediately after another test (cached `LastLedgerSequence`). Mitigated with `time.sleep(3)` at script start. Long-term fix: retry decorator on `submit_and_wait`.
-- `TrustRegistry._get_agent_credentials()` is a stub; needs `xrpl.account_objects` integration for full ledger enumeration.
-- `TrustRegistry` cache is unbounded; needs LRU eviction or TTL.
-
-## [0.1.0] - 2026-09-28
-
-Initial live-capable release. Same as [Unreleased] minus the trust library additions. 27 offline + 4 live tests passing.
-
-### Added
-- Project skeleton (LICENSE, README, pyproject.toml, package directory)
-- `xrpl_agent_id/did.py` — XLS-40d parser, W3C DID Core 1.0 compliant
-  - `did_from_account()` — builds `did:xrpl:<network-id>:<address>`
-  - `parse_did()` — parses back to `(network_id, address)` tuple
-  - `DIDDocument` — W3C DID Document with array `@context`, `Multikey` types
-  - `resolve_did()` — live `ledger_entry(did=...)` resolution
-  - Network map: mainnet=1, testnet=2, devnet=3, AMM-devnet=25, sidechain=222
-  - 12 regression tests, all passing
-- `xrpl_agent_id/network.py` — NetworkEndpoint + JSON-RPC client factory
-- `xrpl_agent_id/credential.py` — XLS-70 wrapper (full implementation)
-  - `CredentialType` enum (`AGENT_ID_V1`, `VERIFIED_AGENT_OPERATOR`, `EVAL_PASSED`)
-  - `Credential` dataclass with `to_ledger_fields()`, `from_ledger_entry()`, `to_w3c_vc()`
-  - Auto hex-encodes `credential_type` (snake_case wire format)
-  - Validates 64-byte type cap, 256-byte URI cap per XLS-70
-  - 15 unit tests
-- `xrpl_agent_id/identity.py` — `AgentIdentity` class (live-ready)
-  - `from_seed(seed, network)` — loads `xrpl-py` Wallet
-  - `issue_credential()` — submits CredentialCreate
-  - `accept_credential()` — submits CredentialAccept
-  - `set_did_document()`, `set_did_uri()` — DIDSet helpers
-  - `has_credential()`, `resolve_did_document()` — verification helpers
-- `xrpl_agent_id/authority.py` — `Authority` class (issuance-only subclass)
-- Live testnet demo: `scripts/issue_agent_id.py`
-  - Funds fresh wallets via faucet
-  - Issues, accepts, writes DID, verifies — all on real testnet
-  - Captures all tx hashes and raw ledger entries to `results/`
-- Test suite: 27 offline + 4 live-gated = 31 total, 27/27 passing offline
-- Integration test scaffolding (`tests/test_integration_ledger_live.py`)
-- REUSE-compliant SPDX headers in all source files
-- README.md (15.8 KB, 6 sections: Cover, Description, Copyright, Code, Testing, Appendix)
-- Polished PDF deliverable (`xrpl_agent_id_README.pdf`, 9 pages, 474 KB)
-- Live testnet results doc: `docs/01_issuance_flow.md`
-  - First live run: `results/issuance_testnet_20260928_173724.json`
-  - All 3 transactions (CredentialCreate, CredentialAccept, DIDSet) succeeded on testnet
-
-### Fixed
-- `NETWORK_IDS["mainnet"]` corrected from `0` to `1` (verified against XLS-40d README)
-- `credential_type` snake_case wire-format encoding for xrpl-py compatibility
-- `DIDDocument.to_json()` emits array `@context` (not bare string) per W3C DID Core 1.0
-- `DIDDocument.to_json()` normalizes legacy VM types to `Multikey`
-- `resolve_did()` returns synthesized DID Document when no `DIDDocument` on-ledger
-
-### Security
-- No key custody by default; seeds never logged or transmitted beyond `xrpl-py`
-- `testnet_keys/` directory gitignored — secrets never committed
-- MCP design: prepare/verify/submit split keeps signing off the tool surface
+## [0.2.0]

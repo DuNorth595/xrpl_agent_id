@@ -121,16 +121,16 @@ The agent doing its job — paying, swapping, whatever — pays XRPL fees
 **anyway**. That is the cost of using XRPL, not the cost of agent ID.
 It should not appear in the agent-ID line item.
 
-### The summary a counterparty wants
+### Summary
 
-> **Establishing trust costs two transactions and ~0.00002 XRP. Using
-> that trust to authorize requests costs nothing. The on-chain audit
-> trail is optional and, batched, costs one transaction per 1,000
-> decisions.**
+| Stage | Cost |
+|---|---|
+| Establishing trust | two transactions, ~0.00002 XRP at base fee |
+| Using that trust to authorize requests | **$0.00** — a ledger read, not a write |
+| On-chain audit trail | optional; batched, one transaction per 1,000 decisions |
 
-**The fee is a one-time setup cost, not a per-request tax.** A
-per-request fee would be the thing nobody would touch — and it is not
-what this library does.
+**The fee is a one-time setup cost.** The authorization path is read-only,
+so authorizing requests submits no transaction.
 
 ## 2. The fee model
 
@@ -213,9 +213,11 @@ obvious one.
 
 ### Tier 2 — Batched anchor (the scale answer)
 
-**Not implemented yet.** Anchor a **Merkle root of N decisions** in one
-transaction. The individual decisions remain off-chain but provably
-included in the anchored root.
+**Implemented** (commit `d48264b`). `AuditLog.anchor_batch()` anchors a
+**Merkle root of N decisions** in one transaction. The individual decisions
+remain off-chain but provably included in the anchored root.
+`AuditLog.batch_proof()` returns the inclusion proof for any one decision,
+and it needs only leaf + path + root — not the operator's database.
 
 | Batch size | @ 10 drops | @ 5,000 drops |
 |---|---|---|
@@ -235,9 +237,8 @@ dollar.** At the median it's $6.65/day. Both are viable. Per-transaction
 anchoring at the median is $6,650/day — **1,000× worse** than batching.
 
 **The gap between Tier 1 and Tier 2 is the single most important economic
-fact in this document.** It is why the current implementation, which
-anchors one transaction per decision, does not scale — and why it should
-not.
+fact in this document.** It is why per-transaction anchoring does not
+scale — and why `anchor_batch()` is the path to use instead.
 
 ---
 
@@ -399,24 +400,32 @@ first-order.**
 
 ### 5.1 Recommendations
 
-1. **Implement Tier 2 batch anchoring.** It is the difference between a
-   $6,650/day and a $6.65/day cost at 1M decisions/day. A Merkle root
-   over a day's decisions, anchored once, is a small change to
-   `AuditLog` — the decision records already carry a `decision_id`, and
-   `compute_decision_id` is already a hash.
-2. **Set `fee_mult_max` / `fee_div_max`** on signing so an agent never
-   signs into a congestion premium it did not intend to pay.
+**Status as of 2026-10-28:** items 1, 2, and 4 are **done**; items 3 and 5
+remain open.
+
+1. ~~**Implement Tier 2 batch anchoring.**~~ ✅ **Done** (commit `d48264b`).
+   It is the difference between a $6,650/day and a $6.65/day cost at 1M
+   decisions/day. `AuditLog.anchor_batch()` anchors a Merkle root over up to
+   1,000 decisions in one transaction; `AuditLog.batch_proof()` returns the
+   inclusion proof. See `xrpl_agent_id/merkle.py`.
+2. ~~**Set `fee_mult_max` / `fee_div_max`** on signing so an agent never
+   signs into a congestion premium it did not intend to pay.~~ ✅ **Done**
+   (commit `b722766`). `max_fee_drops` is enforced against the *autofilled*
+   fee, pre-signing, and `max_fee_drops_for_usd()` converts a dollar ceiling
+   into a drop ceiling. The refusal is *recorded* on the audit row
+   (`mirror_dropped_reason`), never silently dropped.
 3. **Document the account-per-agent trap** prominently. It is the single
    biggest lockup mistake available, and it is invisible in the library's
-   API because `AgentIdentity` maps 1:1 to a wallet.
-4. **Revise `docs/MAINNET_DECISION.md` §1** to use *spend* and *lockup*
-   consistently and to state the release mechanics. §1 currently says the
-   reserve is "the real cost," which is wrong and, for a counterparty
-   budgeting from it, materially misleading.
+   API because `AgentIdentity` maps 1:1 to a wallet. ⬜ **Still open.**
+4. ~~**Revise `docs/MAINNET_DECISION.md` §1** to use *spend* and *lockup*
+   consistently and to state the release mechanics.~~ ✅ **Done** (2026-10-28).
+   §1.2–§1.3 now lead with real spend and state the release mechanics; §1.4
+   carries the full distinction.
 5. **Do not let a per-transaction anchor be the default.** It already
    isn't — `mirror_on_deny_only=True` — but the *denial* path is exactly
    the path an attacker would spam, so it needs a rate limit, not just a
-   fee.
+   fee. ⬜ **Partially open:** the fee ceiling bounds the damage, but there is
+   still no per-period *mirror budget* on the denial path.
 
 ### 5.2 Findings — three gaps, verified in the code
 

@@ -1,6 +1,6 @@
 # xrpl_agent_id — Public API Contract
 
-**Version: 0.4.3** · Pinned by `tests/test_public_api.py` · Last updated: 2026-09-30
+**Version: 0.5.0** · Pinned by `tests/test_public_api.py` · Last updated: 2026-10-28
 
 This document is the formal public-API contract for `xrpl_agent_id`. Every name
 listed here is exported from the top-level `xrpl_agent_id` package and is
@@ -69,17 +69,32 @@ which has no wallet to return.
 
 ## Fee control
 
+These controls exist so that the *optional* on-chain paths stay affordable:
+they stop a transaction being signed into a congestion premium nobody intended
+to pay, and they keep the audit trail from costing one transaction per
+decision.
+
 | Name | Purpose |
 | --- | --- |
 | `FeeCeilingExceeded` | Raised when a transaction's fee exceeds the configured drop ceiling. Raised *before* signing, so no premium is ever paid. |
 | `max_fee_drops_for_usd(usd_limit, xrp_price)` | Convert a USD fee ceiling into a drop ceiling. A drop ceiling caps the XRP paid, not the dollars — the same 5,000-drop ceiling is $6.65 at $1.33/XRP and $5,000 at $1,000/XRP. Use this when the real constraint is a dollar amount. |
+| `submit_with_retry(..., max_fee_drops=N)` | The ceiling is enforced against the *autofilled* fee, which is the one that reflects the current open-ledger cost. |
+| `AuditLog.anchor_batch(limit=1000)` | Anchor up to 1,000 decisions in **one** transaction carrying a Merkle root. This is the cheap path: one fee per batch instead of one per decision — roughly 1,000× cheaper at a million decisions a day. |
+| `AuditLog.batch_proof(decision_id)` | Return the inclusion proof for one decision in an anchored batch. Needs only leaf + path + root, so a verifier does not need the operator's database. |
+| `xrpl_agent_id.merkle` | `merkle_root()`, `merkle_proof()`, `verify_inclusion()` — domain-separated leaves, direction-encoded proof paths. |
+
+The audit mirror is **optional and off by default**: `AuditLog` accepts
+`xrpl_mirror=None`, and when a mirror is configured the default policy is
+`mirror_on_deny_only=True`, so an allowed decision writes to SQLite and
+touches nothing on-chain. The mirror runs on its **own key**, so its
+on-chain cost is the operator's, never the counterparty's.
 
 ## Version
 
 | Name | Purpose |
 | --- | --- |
-| `XRPL_AGENT_ID_VERSION` | String `"0.4.3"` (canonical version, same value as `__version__`). |
-| `XRPL_AGENT_ID_VERSION_INFO` | Tuple `(0, 4, 0)` — PEP-440-style, loose. |
+| `XRPL_AGENT_ID_VERSION` | String `"0.5.0"` (canonical version, same value as `__version__`). |
+| `XRPL_AGENT_ID_VERSION_INFO` | Tuple `(0, 5, 0)` — PEP-440-style, loose. Derived from `__version__`. |
 
 The `__version__` attribute is also exported (standard Python convention).
 

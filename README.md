@@ -32,7 +32,7 @@ A small Python library that gives an AI agent an XRPL-native identity:
 OIDC/SAML. Credentials on XRPL are public. Bring your own keys — use
 `xrpl-py`'s `Wallet`.
 
-**Status:** v0.4.3, MIT, testnet-verified. Mainnet use is deliberately gated —
+**Status:** v0.5.0, MIT, testnet-verified. Mainnet use is deliberately gated —
 see [Mainnet readiness](#mainnet-readiness).
 
 ---
@@ -233,11 +233,11 @@ pip install -e ".[dev]"
 Verify:
 
 ```bash
-python -m xrpl_agent_id --version      # → xrpl_agent_id 0.4.3
-python -m pytest tests/                # → 255 passed, 6 skipped (live testnet)
+python -m xrpl_agent_id --version      # → xrpl_agent_id 0.5.0
+python -m pytest tests/                # → 341 passed, 6 skipped (live testnet)
 ```
 
-*(Test count as of v0.4.3, verified 2026-10-27.)*
+*(Test count as of v0.5.0, verified 2026-10-28.)*
 
 The 6 skips are the live-XRPL integration tests. They self-skip unless
 `RUN_LIVE=1` is set and a testnet secret is available:
@@ -264,10 +264,17 @@ an oversight.
 Two cost facts worth knowing before you plan an XRPL deployment: mainnet
 requires a **1 XRP base reserve per account** and a **0.2 XRP owner reserve
 per owned ledger object** (lowered 10× by validator vote in December 2024),
-and each accepted credential is an owned object. A single issuer with ten
-agents holding three credentials each locks roughly **18 XRP** of reserve,
-never refunded while the objects exist. One real agent identity — account,
-DID, and one credential — costs about **1.4 XRP**.
+and each accepted credential is an owned object. The reserve is a **balance
+requirement, not a charge** — per XRPL's documentation, *"When objects are
+removed from the ledger, they no longer count against the reserve
+requirement."* Deleting the credential releases the 0.2 XRP; deleting the
+account releases the 1 XRP.
+
+One real agent identity — account, DID, and one credential — locks about
+**1.4 XRP** as a balance requirement, of which the transaction fees are
+**~0.02 XRP (~$0.027)**. `Authority.issue_credential_cheapest()` takes a
+two-transaction path and drops the lockup to 1.2 XRP by skipping the
+optional DID object.
 
 A note on what this library does *not* do: it does **not** implement
 `DepositPreauth`, so its trust check is a library-side evaluation rather
@@ -362,10 +369,10 @@ solving a different problem.
 
 ```
 $ python -m pytest tests/ -q
-255 passed, 6 skipped
+341 passed, 6 skipped
 ```
 
-*(Verified against v0.4.3 on 2026-10-27.)*
+*(Verified against v0.5.0 on 2026-10-28.)*
 
 Every ledger interaction is mocked in the offline suite, so CI never needs
 testnet access. The live testnet path is opt-in and documented above.
@@ -391,6 +398,7 @@ testnet access. The live testnet path is opt-in and documented above.
 
 | Version | Date | Highlights |
 |---|---|---|
+| [v0.5.0](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.5.0) | 2026-10-28 | **`WalletProvider`** — sign XRPL transactions without holding the key (KMS/HSM/hardware wallet); **fee ceiling** (`max_fee_drops`) so a transaction is never signed into a congestion premium; **batch anchoring** — one transaction per 1,000 decisions via a Merkle root; Python floor raised to 3.10 with `xrpl-py>=5.0,<6` pinned |
 | [v0.4.3](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.4.3) | 2026-10-23 | Security fixes: credential acceptance (`lsfAccepted`) is now read from the raw ledger node and fails closed; credential expiry is checked on the real path; DID validation hardened; ban list; dashboard verification |
 | [v0.4.2](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.4.2) | 2026-10-22 | Corrected a README that advertised things the repository did not have; made the REUSE badge true (`LICENSES/` + `.reuse/dep5` + CI gate) after `reuse lint` failed on 29 of 78 tracked files |
 | [v0.4.1](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.4.1) | 2026-09-30 | Version metadata synced across README, `__init__.py`, and `PUBLIC_API.md` |

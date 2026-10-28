@@ -1,9 +1,16 @@
-# xrpl_agent_id — End-to-end architecture (v0.3.2)
+# xrpl_agent_id — End-to-end architecture (v0.5.0)
 
 This document is the single source of truth for how the project fits
-together as of the v0.3.2 release. It covers the library, the dashboard,
+together as of the v0.5.0 release. It covers the library, the dashboard,
 the stress harness, the audit-mirror path, the build pipeline, and the
-test pyramid. Code references are pinned to v0.3.2.
+test pyramid. Code references are pinned to v0.5.0.
+
+> **Changed in v0.5.0.** `xrpl_agent_id/wallet.py` (the `WalletProvider`
+> protocol and `SeedWalletProvider` / `ExternalSignerProvider`),
+> `xrpl_agent_id/tx_submit.py` (provider-mode submission with the fee
+> ceiling), and `xrpl_agent_id/merkle.py` (batch anchoring) are new since
+> v0.3.2. `AgentIdentity.wallet` is now `AgentIdentity.provider`. The audit
+> log gained `anchor_batch()` and `batch_proof()`.
 
 > **Audience.** Engineers joining the project. Read top-to-bottom on day
 > one; return to §7 (Stress harness) and §8 (Build) when you need to
@@ -51,12 +58,15 @@ test pyramid. Code references are pinned to v0.3.2.
 │  xrpl_agent_id/identity.py         (AgentIdentity — a single agent)│
 │  xrpl_agent_id/authority.py        (Authority — an issuer)     │
 │  xrpl_agent_id/network.py          (NetworkEndpoint + JSON-RPC)│
+│  xrpl_agent_id/wallet.py           (WalletProvider protocol)    │
+│  xrpl_agent_id/tx_submit.py        (submit + retry + ceiling)  │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  Audit + mirror                                                 │
 │  xrpl_agent_id/audit.py            (SQLite log + on-chain memo)│
+│  xrpl_agent_id/merkle.py           (batch anchoring + proofs)  │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -228,6 +238,31 @@ autofilled and re-signed on every retry — see `tx_submit.py` for why the
 stock `submit_and_wait` retry is not sufficient for a pre-signed
 transaction.
 
+### 2.12 `xrpl_agent_id/tx_submit.py`
+
+Submission and the fee ceiling. `submit_with_retry()` re-autofills **and**
+re-signs on every attempt in provider mode, because `xrpl-py`'s
+`submit_and_wait` early-returns on an already-signed transaction and would
+otherwise resubmit a stale blob (`tefMAX_LEDGER`).
+
+`max_fee_drops` is enforced against the *autofilled* fee — the one that
+reflects the current open-ledger cost — and is checked **before** signing,
+so a transaction is never signed into a congestion premium. A refusal
+raises `FeeCeilingExceeded` rather than silently raising the price.
+`max_fee_drops_for_usd()` converts a dollar ceiling into a drop ceiling.
+
+### 2.13 `xrpl_agent_id/merkle.py`
+
+Batch anchoring. `merkle_root()` and `merkle_proof()` build a
+domain-separated Merkle tree over a batch of decision ids, with
+direction-encoded proof paths; `verify_inclusion()` checks a leaf against a
+path and a root using only those three values — **not** the operator's
+database.
+
+`AuditLog.anchor_batch()` uses this to put up to 1,000 decisions in one
+transaction. That is the difference between one transaction per decision and
+one per batch.
+
 ## 3. The on-chain decision flow
 
 A single `policy.evaluate(agent_did)` call is the public surface. The
@@ -391,6 +426,18 @@ See §6.
 on testnet. For a 50-agent run with full mirroring that's 50 mirror txs
 ≈ 750 drops ≈ 0.000750 XRP ≈ $0 (testnet). On mainnet the same would
 be ~$0.00015 at typical rates.
+
+**Per-decision mirroring does not scale.** At a million decisions a day,
+one transaction each is ~$6,650/day at the median fee. `AuditLog.anchor_batch()`
+is the fix: up to 1,000 decisions in one transaction carrying a Merkle root,
+which is ~$6.65/day at the median fee and ~$0.01/day at the base fee.
+`AuditLog.batch_proof()` returns the inclusion proof for any one decision.
+
+**The mirror is optional and off by default.** `AuditLog` accepts
+`xrpl_mirror=None`, and when a mirror is configured the default policy is
+`mirror_on_deny_only=True`, so an allowed decision writes to SQLite and
+touches nothing on-chain. The mirror runs on its own key, so its on-chain
+cost is the operator's, never the counterparty's.
 
 ### 5.3 Why 1 drop, not 0?
 
@@ -638,7 +685,7 @@ bumps.
                   │
                   ▼
 ┌──────────────────────────────────────┐
-│ Unit tests (255 passing, 6 skipped)  │  tests/test_*.py
+│ Unit tests (341 passing, 6 skipped)  │  tests/test_*.py
 │ (mocked ledger, hermetic)            │  • test_credential, test_did, test_trust
 │                                      │  • test_authorization, test_audit
 │                                      │  • test_dashboard, test_dashboard_verify
@@ -656,7 +703,7 @@ bumps.
 
 ```bash
 python3 -m pytest -x -q
-# 255 passed, 6 skipped
+# 341 passed, 6 skipped
 ```
 
 The 6 skipped are the live-XRPL integration tests, gated behind `RUN_LIVE=1`.

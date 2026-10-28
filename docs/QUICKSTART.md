@@ -245,7 +245,7 @@ policy = TrustRegistry(network="mainnet")
 
 The DID's network ID flips from `2` to `1`. The library never assumes testnet by default — every network-aware call takes `network=` explicitly so you can't accidentally mix them.
 
-**Heads up:** Mainnet issuance burns real XRP (transaction fees + reserve). See `docs/USE_CASES.md` for the cost model before you ship.
+**Heads up:** Mainnet issuance burns real XRP for the transaction fees, and XRPL holds a balance requirement (1 XRP per account, 0.2 XRP per owned object) that is released when you delete the objects.
 
 ---
 
@@ -338,8 +338,8 @@ accepting, and trust checks are unchanged.
 
 ## Document status
 
-- **Version:** 0.4.3 (with the v0.5.0 `WalletProvider` section)
+- **Version:** 0.5.0
 - **Author:** S_DevLabs
 - **Last updated:** 2026-10-27
-- **Tested against:** `xrpl_agent_id` 0.4.3 on XRPL testnet
+- **Tested against:** `xrpl_agent_id` 0.5.0 on XRPL testnet
 - **Audience:** First-time users of `xrpl_agent_id`. Assumes basic XRPL knowledge (accounts, seeds, transactions) but no prior exposure to this library.

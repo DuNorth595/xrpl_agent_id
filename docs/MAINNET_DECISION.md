@@ -69,32 +69,42 @@ XRPL mainnet requires a **base reserve of 1 XRP per account** and an
 > `reserve_inc_xrp: 0.2`, `base_fee_xrp: 1e-05`, ledger #107,949,783).
 
 For xrpl_agent_id, each agent identity owns:
-- 1 Account (**1 XRP** base reserve, recoverable only if the account is
-  deleted)
-- 1 DID ledger object (**+0.2 XRP**)
-- 0–N Credential ledger objects the agent accepts as subject (**+0.2 XRP each**)
-- 0–M audit memo `Payment` transactions (not owned objects, but each
-  burns a transaction fee)
+- 1 Account (**1 XRP** base reserve, recoverable when the account is deleted)
+- 1 DID ledger object (**+0.2 XRP**, recoverable on `DIDDelete`)
+- 0–N Credential ledger objects the agent accepts as subject (**+0.2 XRP
+  each**, recoverable on `CredentialDelete`)
+- 0–M audit memo `Payment` transactions (not owned objects, but each burns a
+  transaction fee)
+
+**These are balance requirements, not expenses.** Per XRPL's documentation:
+*"When objects are removed from the ledger, they no longer count against the
+reserve requirement."* No reserve is ever burned by deletion — deleting the
+objects releases the XRP in full. See §1.4.
 
 **Concrete example — 1 issuer, 10 agents, 3 credentials each:**
 - 10 × 1 XRP (base) = **10 XRP** locked
 - 10 × 0.2 XRP (DID) = 2 XRP
 - 30 × 0.2 XRP (credentials) = 6 XRP
-- Transaction fees (creation + acceptance) ≈ negligible
-- **Total reserve lockup: ~18 XRP** (~$24 at $1.33/XRP)
+- Transaction fees (creation + acceptance) ≈ **~0.2 XRP actual spend**
+  (~$0.27) — see §1.4
+- **Total reserve lockup: ~18 XRP** (~$24 at $1.33/XRP) — **recoverable in
+  full** by deleting the objects and accounts
 
 **Concrete example — the same shape at scale:** 1,000 agents with 3
 credentials each locks **~1,400 XRP** (~$1,860), not the ~208,000 XRP
-previously stated.
+previously stated. The lockup is also avoidable at the topology level: one
+account can hold many credentials, so 100 credentials on a single account
+locks 21 XRP instead of 120.
 
-**Minimum cost of one real agent identity** (1 account + 1 DID + 1
-credential, 4 transactions): **~1.4 XRP** (~$1.86).
+**Real spend per agent identity** (1 account + 1 DID + 1 credential, 4
+transactions): **~0.02 XRP (~$0.027)**. The 1.4 XRP is a *balance
+requirement*, not a cost.
 
 ### 1.3 Fee conclusion
 
-The library can afford mainnet fees per transaction. The **reserve
-lockup** is real and must be budgeted by whoever funds the issuer
-account, but at current reserves it is an order of magnitude cheaper
+The library can afford mainnet fees per transaction. The **reserve lockup**
+is real and must be budgeted by whoever funds the issuer account, but it is
+recoverable in full and — at current reserves — an order of magnitude cheaper
 than this document previously claimed. Not a blocker — a planning
 requirement.
 
@@ -126,10 +136,13 @@ credential.
 **At scale the fee dominates, not the reserve.** Anchoring one
 transaction per decision costs ~$6,650/day at 1M decisions/day (median
 fee); anchoring a batched Merkle root costs ~$6.65/day — **1,000×
-cheaper**. The library's on-chain mirror is already optional and already
-defaults to `mirror_on_deny_only=True`, but it anchors one transaction
-per decision, which does not scale. Batch anchoring is the fix, and it is
-not yet implemented.
+cheaper**. The library's on-chain mirror is optional and defaults to
+`mirror_on_deny_only=True`, but per-decision anchoring does not scale.
+Batch anchoring is the fix, and **it is implemented**: `AuditLog.anchor_batch()`
+(commit `d48264b`) anchors up to 1,000 decisions in one transaction via a
+Merkle root, with `AuditLog.batch_proof()` and `xrpl_agent_id/merkle.py`
+providing inclusion proofs that need only leaf + path + root — not the
+operator's database.
 
 ---
 

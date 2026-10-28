@@ -68,7 +68,7 @@ The same code works whether the platform is a marketplace, a hiring portal, or a
 
 **With `xrpl_agent_id`:**
 - Every decision is recorded in `xrpl_agent_id.audit.AuditLog` (SQLite by default).
-- The same decision's `decision_id` is mirrored to the XRPL via a 1-drop memo. Cost: ~15 drops of XRP, which on testnet is free and on mainnet is fractions of a cent.
+- The same decision's `decision_id` is mirrored to the XRPL via a 1-drop memo. Cost: ~15 drops of XRP, which on testnet is free and on mainnet is fractions of a cent. (Batched anchoring via `AuditLog.anchor_batch()` cuts this by ~1,000× — one transaction per 1,000 decisions.)
 - An auditor can be given a tx hash and reverse-lookup the decision via `GET /api/verify?tx_hash=…` (or directly via `xrpl_agent_id.audit.XRPLMirror.verify()`).
 - The auditor doesn't need to trust you, your database, or your uptime. They need to trust the XRPL consensus.
 

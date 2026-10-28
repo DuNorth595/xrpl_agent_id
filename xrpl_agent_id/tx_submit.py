@@ -104,10 +104,50 @@ def _is_provider(obj: Any) -> bool:
     )
 
 
+class FeeCeilingExceeded(RuntimeError):
+    """The transaction's fee exceeds the configured ceiling.
+
+    XRPL's open-ledger cost rises *exponentially* once the open ledger
+    passes its soft limit. A transaction signed during congestion can
+    therefore cost many times the median. This is raised instead of
+    signing, so an operator can refuse a premium it did not intend to
+    pay -- and so an unanchored audit record can be *recorded* as
+    unanchored rather than silently dropped.
+    """
+
+
+def _check_fee_ceiling(tx: Any, max_fee_drops: int | None) -> None:
+    """Raise `FeeCeilingExceeded` if the tx's fee is above the ceiling.
+
+    Only checks a fee that is already set on the transaction. A fee of
+    None or 0 means "not yet autofilled", and autofill will compute it
+    later; the ceiling is enforced on the autofilled value in that case
+    (see `_prepare_attempt`).
+
+    A ceiling of None disables the check.
+    """
+    if max_fee_drops is None:
+        return
+    fee = getattr(tx, "fee", None)
+    if fee is None:
+        return
+    try:
+        fee_drops = int(fee)
+    except (TypeError, ValueError):
+        return
+    if fee_drops > max_fee_drops:
+        raise FeeCeilingExceeded(
+            f"transaction fee {fee_drops} drops exceeds the ceiling of "
+            f"{max_fee_drops} drops; refusing to sign into a congestion "
+            f"premium"
+        )
+
+
 def _prepare_attempt(
     tx: Any,
     client: Any,
     provider: Any,
+    max_fee_drops: int | None = None,
 ) -> Any:
     """Return the transaction to submit for THIS attempt.
 
@@ -119,13 +159,19 @@ def _prepare_attempt(
 
     In wallet mode the transaction is returned untouched -- `submit_and_wait`
     autofills and signs it itself.
+
+    `max_fee_drops`, when set, is enforced against the *autofilled* fee --
+    which is the one that matters, because autofill is what reads the
+    current open-ledger cost.
     """
     if not _is_provider(provider):
+        _check_fee_ceiling(tx, max_fee_drops)
         return tx
 
     from xrpl.transaction import autofill
 
     fresh = autofill(tx, client)
+    _check_fee_ceiling(fresh, max_fee_drops)
     return provider.sign(fresh)
 
 
@@ -137,6 +183,7 @@ def submit_with_retry(
     max_attempts: int = 3,
     base_delay: float = 2.0,
     sleep=time.sleep,
+    max_fee_drops: int | None = None,
 ) -> Optional[dict]:
     """`submit_and_wait` that retries transient ledger races.
 
@@ -158,6 +205,11 @@ def submit_with_retry(
         max_attempts: how many times to try before re-raising.
         base_delay: seconds; the wait before attempt N+1 is `base_delay * N`.
         sleep: injection point for tests.
+        max_fee_drops: refuse to sign a transaction whose fee exceeds this
+            many drops, raising `FeeCeilingExceeded`. XRPL's open-ledger
+            cost rises exponentially past the open ledger's soft limit, so
+            an unbounded fee can be many times the median. None (the
+            default) disables the check.
     """
     from xrpl.transaction import submit_and_wait
 
@@ -180,10 +232,16 @@ def submit_with_retry(
             # transaction we submit is already signed, so xrpl-py's
             # `_get_signed_tx` returns it untouched instead of autofilling
             # it again.
-            attempt_tx = _prepare_attempt(tx, client, wallet)
+            attempt_tx = _prepare_attempt(
+                tx, client, wallet, max_fee_drops=max_fee_drops
+            )
             response = submit_and_wait(attempt_tx, client, signer_for_xrpl)
             return response.result
         except Exception as exc:  # xrpl raises several submission exceptions
+            # A fee-ceiling refusal is a deliberate decision, not a
+            # transient ledger condition -- never retry it.
+            if isinstance(exc, FeeCeilingExceeded):
+                raise
             if not is_transient_ledger_error(exc):
                 raise
             last_exc = exc

@@ -98,6 +98,39 @@ account, but at current reserves it is an order of magnitude cheaper
 than this document previously claimed. Not a blocker — a planning
 requirement.
 
+### 1.4 Spend vs. lockup — the distinction this section previously blurred
+
+> **Corrected 2026-10-28.** This section called the reserve "the real
+> cost." That conflated two different things. The full model, with the
+> scale economics and three verified code findings, is in
+> [`XRPL_COST_MODEL.md`](../XRPL_COST_MODEL.md). Summary:
+
+| | What it is | Recoverable? | Scales with |
+|---|---|---|---|
+| **Fee** | XRP burned per transaction | ❌ No | transaction volume |
+| **Base reserve** | 1 XRP per *account* | ✅ Yes, on account deletion | number of accounts |
+| **Owner reserve** | 0.2 XRP per *owned object* | ✅ Yes, on object deletion | number of objects |
+
+**Per agent identity, the real spend is ~0.02 XRP (~$0.027) — the
+transaction fees.** The 1.4 XRP is a *balance requirement*, not a
+expense: *"When objects are removed from the ledger, they no longer
+count against the reserve requirement."* Deleting the credential
+releases it.
+
+**Who pays the reserve matters:** the DID's 0.2 XRP goes to whoever
+created it; a credential's 0.2 XRP goes to the **subject** once it
+accepts (the issuer pays it before acceptance). An issuer issuing to
+existing accounts pays the account base reserve and the DID, not the
+credential.
+
+**At scale the fee dominates, not the reserve.** Anchoring one
+transaction per decision costs ~$6,650/day at 1M decisions/day (median
+fee); anchoring a batched Merkle root costs ~$6.65/day — **1,000×
+cheaper**. The library's on-chain mirror is already optional and already
+defaults to `mirror_on_deny_only=True`, but it anchors one transaction
+per decision, which does not scale. Batch anchoring is the fix, and it is
+not yet implemented.
+
 ---
 
 ## 2. Key custody and seed handling

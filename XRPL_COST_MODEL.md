@@ -1,0 +1,309 @@
+# XRPL Cost Model for AI Agent Traffic — Fees, Lockup, Release
+
+**Status:** analysis, 2026-10-28. Written to define the cost vocabulary the
+rest of the project was using loosely, and to answer the question that
+actually matters at scale: **what does a decision cost, and what does it
+cost when there are millions of them?**
+
+All mainnet figures below were read from the live ledger
+(`server_info`/`fee` on `s1.ripple.com`, ledger #107,949,986) on 2026-10-28.
+XRP price is $1.33 (CoinGecko, same date).
+
+---
+
+## 1. The vocabulary — four distinct things people were calling "cost"
+
+This is the core confusion. XRPL has **four** separate economic concepts,
+and the project docs were using "cost" for all of them.
+
+| Term | What it is | Recoverable? | Scales with |
+|---|---|---|---|
+| **Fee** | XRP burned to include a transaction | ❌ **No** — destroyed to the fee sink | transaction volume |
+| **Base reserve** | Minimum balance per *account* | ✅ Yes — on account deletion | number of accounts |
+| **Owner reserve** | Balance required per *owned ledger object* | ✅ Yes — on object deletion | number of objects |
+| **Load cost** | The *minimum fee* the network will accept, rising with congestion | n/a | current ledger load |
+
+**The reserve is not a cost.** Per XRPL's documentation: *"You cannot send
+the reserved XRP to others, but you can recover some of the XRP by
+deleting the account,"* and *"When objects are removed from the ledger,
+they no longer count against the reserve requirement."*
+
+**So:** a reserve is a **balance requirement** (a lockup), and a fee is a
+**burn**. Only the fee is a true expense. This document uses *spend* for
+fees and *lockup* for reserve, consistently.
+
+### 1.1 Where the old "~1.4 XRP per agent identity" figure came from
+
+| Component | XRP | Who pays | Lockup or spend |
+|---|---|---|---|
+| Account base reserve | 1.0 | the account's owner | lockup |
+| DID owner reserve | 0.2 | *"the account that creates the DID object"* | lockup |
+| Credential owner reserve | 0.2 | **the subject** if it accepted; else the issuer | lockup |
+| Transaction fees (~4 txs) | ~0.02 | the signer | **spend** |
+
+**Real spend per identity: ~0.02 XRP (~$0.027).**
+**Balance locked per identity: 1.4 XRP (~$1.86), fully recoverable.**
+
+The previous framing in `docs/MAINNET_DECISION.md` §1 called the 1.4 XRP
+"the real cost." That was wrong, and this document supersedes it.
+
+### 1.2 Release mechanics — what gives the reserve back
+
+| Action | What is released | Who gets it |
+|---|---|---|
+| `CredentialDelete` | that credential's 0.2 XRP | the object's owner |
+| `DIDDelete` | that DID's 0.2 XRP | the object's owner |
+| `CredentialAccept` | **moves** 0.2 XRP from issuer to subject | subject now holds the lockup |
+| Account deletion | the 1 XRP base reserve | the account owner |
+
+**No reserve is ever burned by deletion.** Reserve is a *claim on your
+balance*, not a *charge against it*.
+
+**Important subtlety:** a `Credential` counts against the **subject's**
+reserve once accepted, and against the **issuer's** before acceptance. An
+issuer who issues to existing accounts pays only the account base reserve
+and the DID — **not** the credential's 0.2 XRP.
+
+---
+
+## 2. The fee model
+
+### 2.1 Live mainnet fee levels (2026-10-28)
+
+| Level | Drops | XRP | USD |
+|---|---|---|---|
+| Minimum / base fee | 10 | 0.00001 | $0.000013 |
+| **Median fee** | 5,000 | 0.005 | $0.00665 |
+| Open-ledger fee (at soft limit) | 5,000 | 0.005 | $0.00665 |
+| Current open-ledger fee (unloaded) | 10 | 0.00001 | $0.000013 |
+
+**The 10-drop base fee is a floor, not a price.** The real transaction cost
+is set by the *open ledger cost*, which "increases exponentially for each
+transaction added beyond the soft limit" of the open ledger.
+
+### 2.2 The escalation mechanism — why the median is 5,000 drops
+
+XRPL has two thresholds:
+
+1. **Local load cost** — below it, a server *ignores* the transaction
+   entirely (doesn't even relay it).
+2. **Open ledger cost** — below it, the transaction is *queued* for a later
+   ledger rather than included now.
+
+The open ledger cost equals the minimum unscaled cost until the open
+ledger reaches its soft limit, then **increases exponentially** per
+additional transaction. This is the mechanism that prices congestion.
+
+`xrpl-py` exposes `fee_mult_max` / `fee_div_max` on `sign()` so a caller
+can refuse to sign a transaction above a fee ceiling. **Any production
+agent should set these.** An unfilled transaction that lands at a 50×
+premium is a real cost, and it is avoidable.
+
+### 2.3 Throughput ceiling
+
+| Metric | Value |
+|---|---|
+| Average ledger close | ~3.9 s |
+| Sustained throughput | ~1,500 TPS |
+| Theoretical max (7,500 tx/ledger ÷ 3.9 s) | ~1,900 TPS |
+| **Capacity** | **~130–166 million tx/day** |
+
+**"Millions of AI transactions a day" is feasible.** 1M tx/day is ~11.6
+TPS average — under 1% of capacity. But it is *not* free of the
+throughput constraint: sustained AI traffic is a permanent load, and the
+open-ledger cost will sit well above the 10-drop base.
+
+---
+
+## 3. Three tiers of anchoring — the design that makes scale work
+
+**The library already supports this.** `AuditLog` is SQLite-backed and
+always writes every decision. `XRPLMirror` is **optional**
+(`xrpl_mirror: XRPLMirror | None = None`) and the default policy is
+`mirror_on_deny_only=True`.
+
+So the architecture already separates the cheap case from the important
+case. What was missing was the *third* tier.
+
+### Tier 0 — Off-chain (default, and correct for allows)
+
+Every decision → SQLite, append-only, WAL. **$0.**
+Not independently verifiable; the operator can alter it. Appropriate for
+the common case, and it is what the library does by default.
+
+### Tier 1 — On-chain anchor (denials, high-value, disputes)
+
+One transaction per anchored decision.
+
+| Fee level | XRP/tx | USD/tx | 1M anchored/day |
+|---|---|---|---|
+| 10 drops (base) | 0.00001 | $0.000013 | $0.01 |
+| 5,000 drops (median) | 0.005 | $0.00665 | $6,650 |
+| 50,000 drops (congested) | 0.05 | $0.06650 | $66,500 |
+
+**Anchoring every decision at the median is $6,650/day.** That is the
+number that makes "millions a day" a business decision rather than an
+obvious one.
+
+### Tier 2 — Batched anchor (the scale answer)
+
+**Not implemented yet.** Anchor a **Merkle root of N decisions** in one
+transaction. The individual decisions remain off-chain but provably
+included in the anchored root.
+
+| Batch size | @ 10 drops | @ 5,000 drops |
+|---|---|---|
+| 100 | $0.00000013 / decision | $0.00006650 |
+| 1,000 | $0.00000001 | **$0.00000665** |
+| 10,000 | ~$0 | $0.00000067 |
+
+**1M decisions/day, anchored daily in 1,000-transaction batches:**
+
+| Fee level | Tx/day | XRP/day | USD/day | USD/year |
+|---|---|---|---|---|
+| Base (10 drops) | 1,000 | 0.01 | **$0.01** | **~$4** |
+| Median (5,000 drops) | 1,000 | 5.00 | $6.65 | $2,427 |
+
+**At the base fee, anchoring a million decisions a day costs about a
+dollar.** At the median it's $6.65/day. Both are viable. Per-transaction
+anchoring at the median is $6,650/day — **1,000× worse** than batching.
+
+**The gap between Tier 1 and Tier 2 is the single most important economic
+fact in this document.** It is why the current implementation, which
+anchors one transaction per decision, does not scale — and why it should
+not.
+
+---
+
+## 4. Lockup at scale
+
+**Lockup does not scale with transaction volume. Fees do.** They are
+different problems.
+
+| Identities | XRP locked | USD @ $1.33 | USD @ $10 | USD @ $25 |
+|---|---|---|---|---|
+| 1,000 | 1,400 | $1,862 | $14,000 | $35,000 |
+| 100,000 | 140,000 | $186,200 | $1,400,000 | $3,500,000 |
+| 1,000,000 | 1,400,000 | $1,862,000 | $14,000,000 | $35,000,000 |
+
+**The 1 XRP base reserve dominates** — it is per-account, and a naive
+implementation provisions one account per agent.
+
+**Mitigations, in order of impact:**
+
+1. **Don't provision an account per agent.** One account can hold many
+   DIDs and credentials. A single account with 1 DID and 50 credentials
+   locks 11.2 XRP total, not 70. This is the biggest lever by far.
+2. **Delete objects when done.** Revoking a credential releases 0.2 XRP.
+3. **Wait for the `Sponsor` amendment.** `Credential` supports
+   sponsorship; `DID` does not. Status on mainnet 2026-10-28:
+   `enabled=False, supported=True` — **not yet live.** When it activates,
+   an issuer can pay the subject's credential reserve, pushing the
+   0.2 XRP off the subject and onto the issuer.
+4. **Price sensitivity is real.** At $25/XRP, 1.4 XRP locked per identity
+   is $35 — painful at 1M identities. But the *fee* side barely moves:
+   1M decisions/day at the median is $6.65/day, not $1.86M.
+
+---
+
+## 5. The conclusion that matters
+
+**For millions of AI transactions per day, the fee is the whole game, and
+the reserve is a second-order problem that a naive implementation makes
+first-order.**
+
+| Scale | Dominant cost | Fix |
+|---|---|---|
+| 1,000 tx/day | fees (~$7/day) | nothing needed |
+| 1M tx/day, per-tx anchoring | **fees (~$6,650/day)** | **batch anchor** |
+| 1M tx/day, batched | fees (~$0.01–6.65/day) | nothing needed |
+| 1M identities | **lockup (~$1.86M)** | shared accounts, deletion, sponsorship |
+
+### 5.1 Recommendations
+
+1. **Implement Tier 2 batch anchoring.** It is the difference between a
+   $6,650/day and a $6.65/day cost at 1M decisions/day. A Merkle root
+   over a day's decisions, anchored once, is a small change to
+   `AuditLog` — the decision records already carry a `decision_id`, and
+   `compute_decision_id` is already a hash.
+2. **Set `fee_mult_max` / `fee_div_max`** on signing so an agent never
+   signs into a congestion premium it did not intend to pay.
+3. **Document the account-per-agent trap** prominently. It is the single
+   biggest lockup mistake available, and it is invisible in the library's
+   API because `AgentIdentity` maps 1:1 to a wallet.
+4. **Revise `docs/MAINNET_DECISION.md` §1** to use *spend* and *lockup*
+   consistently and to state the release mechanics. §1 currently says the
+   reserve is "the real cost," which is wrong and, for a counterparty
+   budgeting from it, materially misleading.
+5. **Do not let a per-transaction anchor be the default.** It already
+   isn't — `mirror_on_deny_only=True` — but the *denial* path is exactly
+   the path an attacker would spam, so it needs a rate limit, not just a
+   fee.
+
+### 5.2 Findings — three gaps, verified in the code
+
+These were checked against the implementation, not inferred. All three are
+real.
+
+#### Finding 1 — the denial path is an unconditional griefing vector
+
+`AuditLog.record()` mirrors on every denial:
+
+```python
+should_mirror = (not self.mirror_on_deny_only) or (not decision.allow)
+if should_mirror:
+    mirror_tx = self.xrpl_mirror.submit(decision, extra)
+```
+
+There is **no rate limit, no ceiling, and no aggregation** on that path.
+A denial is decided from a request the caller supplies, so an attacker
+who can cause denials can cause **transactions**. At the median fee that
+is $0.00665 per denial, paid by the operator.
+
+**The failure mode is bad in both directions:** unbounded spend under
+attack, and a silently-dropped audit trail if a ceiling is added without
+recording the gap.
+
+**Recommendation:** a per-period mirror budget, with denials past the
+budget recorded as `mirrored_tx=NULL` **and** an explicit
+`mirror_dropped` reason — a *recorded* gap, never a silent one. Batch
+anchor the overflow instead of dropping it.
+
+#### Finding 2 — no fee ceiling anywhere in the library
+
+`xrpl-py` supports `fee_mult_max` / `fee_div_max` on `sign()`, and
+`submit_with_retry` re-autofills per attempt. But the library never sets
+a ceiling, and the mirror's `Payment` does not pin a `Fee`.
+
+Consequence: a mirror transaction submitted during congestion can be
+signed at whatever the current open-ledger cost is — the exponential
+escalation path from §2.2 — with no ceiling. A single anchored decision
+could cost 50× the median.
+
+**Recommendation:** set a fee ceiling on every signing path, and record
+the ceiling's value so an auditor can tell what a decision *would* have
+cost.
+
+#### Finding 3 — the mirror's destination is a burn
+
+The mirror sends a 1-drop `Payment` to a sink address. The 1 drop is
+burned (it cannot be 0 — *"0-XRP fails"*). At 1M anchored decisions/day
+that is 1 XRP/day burned into the sink, on top of fees.
+
+Small, but it is a **second, silent, per-transaction cost** that the fee
+model does not capture, and it scales with exactly the volume that
+matters. Batching fixes this too: 1,000 transactions/day instead of
+1,000,000.
+
+### 5.3 Open questions this document raises
+
+- **Does a batched Merkle anchor satisfy an auditor?** An auditor
+  verifying "this decision was anchored" must be shown the leaf, the
+  path, and the root. That is a proof-verification interface, not a
+  lookup. Design work, and it is the thing a counterparty will ask about.
+- **What is the right denial policy?** Rate limit, budget, or batch?
+  Depends on the operator's risk posture — but it cannot be "mirror
+  everything, unconditionally," which is what the code does today.
+- **Does the off-chain SQLite log need tamper-evidence?** It is
+  operator-mutable. A Merkle root anchored on-chain makes it
+  *tamper-evident* — which is the whole point of Tier 2.

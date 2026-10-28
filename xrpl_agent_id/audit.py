@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from xrpl_agent_id.authorization import AuthorizationDecision
+from xrpl_agent_id.tx_submit import FeeCeilingExceeded
 
 
 AUDIT_SCHEMA = """
@@ -140,6 +141,7 @@ class XRPLMirror:
         provider,
         network: str = "testnet",
         destination: str | None = None,
+        max_fee_drops: int | None = None,
     ) -> None:
         # v0.5.0: holds a WalletProvider, like AgentIdentity. The previous
         # attribute name was `wallet`; it is renamed here for the same
@@ -150,10 +152,19 @@ class XRPLMirror:
         # "ACCountRoot" address — fees will burn but the memo lands. For
         # testnet this is rrrrrrrrrrrrrrrrrrrrrrrLvTp.
         self.destination = destination or "rrrrrrrrrrrrrrrrrrrrrrrrLvLvTp"
+        # Fee ceiling, in drops. XRPL's open-ledger cost rises
+        # exponentially past the open ledger's soft limit, so an
+        # unbounded mirror can be signed at many times the median fee.
+        # None disables the check; see XRPL_COST_MODEL.md §5.2.
+        self.max_fee_drops = max_fee_drops
 
     @classmethod
     def from_seed(
-        cls, seed: str, network: str = "testnet", destination: str | None = None
+        cls,
+        seed: str,
+        network: str = "testnet",
+        destination: str | None = None,
+        max_fee_drops: int | None = None,
     ) -> "XRPLMirror":
         from xrpl_agent_id.wallet import SeedWalletProvider
         from xrpl.wallet import Wallet
@@ -161,6 +172,7 @@ class XRPLMirror:
             provider=SeedWalletProvider(Wallet.from_seed(seed)),
             network=network,
             destination=destination,
+            max_fee_drops=max_fee_drops,
         )
 
     def submit(self, decision: AuthorizationDecision, extra: dict | None = None) -> str:
@@ -198,7 +210,9 @@ class XRPLMirror:
             ],
         )
         client = get_client(self.network)
-        result = submit_with_retry(tx, client, self.provider)
+        result = submit_with_retry(
+            tx, client, self.provider, max_fee_drops=self.max_fee_drops
+        )
         tx_hash = (result or {}).get("hash", "")
         return tx_hash
 
@@ -318,6 +332,27 @@ class AuditLog:
             if should_mirror:
                 try:
                     mirror_tx = self.xrpl_mirror.submit(decision, extra)
+                except FeeCeilingExceeded as e:
+                    # A deliberate refusal, not a failure. The decision is
+                    # still recorded; the fact that it could NOT be
+                    # anchored on-chain is recorded alongside it, so the gap
+                    # is visible to an auditor rather than silent.
+                    # See XRPL_COST_MODEL.md 5.2.
+                    mirror_tx = None
+                    extra_mirror_err = {
+                        "mirror_error": str(e),
+                        "mirror_dropped": "fee_ceiling_exceeded",
+                        "mirror_dropped_reason": "refused to sign above the "
+                        "configured fee ceiling; this decision is recorded "
+                        "off-chain only",
+                    }
+                    self._conn.execute(
+                        "UPDATE auth_decisions SET extra_json = ? WHERE id = ?",
+                        (
+                            json.dumps({**(extra or {}), **extra_mirror_err}),
+                            new_id,
+                        ),
+                    )
                 except Exception as e:
                     mirror_tx = None
                     extra_mirror_err = {"mirror_error": str(e)}

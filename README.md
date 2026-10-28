@@ -103,7 +103,8 @@ Three scripts in [`examples/`](examples/). Each prints what it did and what
 to do next.
 
 ```bash
-pip install xrpl-agent-id
+# not on PyPI yet -- install from GitHub
+pip install "xrpl-agent-id @ git+https://github.com/DuNorth595/xrpl_agent_id.git"
 python examples/01_create_did.py
 ```
 
@@ -122,7 +123,8 @@ operations to any MCP client — Claude Desktop, Claude Code, or anything else
 that speaks the protocol.
 
 ```bash
-pip install xrpl-did-mcp
+# not on PyPI yet -- install from GitHub
+pip install "xrpl-did-mcp @ git+https://github.com/DuNorth595/xrpl_did_mcp.git"
 ```
 
 ```json

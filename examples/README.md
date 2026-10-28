@@ -11,7 +11,8 @@ Three runnable scripts. Each one prints what it did and what you can do next.
 ## Run them
 
 ```bash
-pip install xrpl-agent-id
+# not on PyPI yet -- install from GitHub
+pip install "xrpl-agent-id @ git+https://github.com/DuNorth595/xrpl_agent_id.git"
 python examples/01_create_did.py
 ```
 

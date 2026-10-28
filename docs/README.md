@@ -35,7 +35,7 @@ are not a guide to using the library.
 
 | Document | Why it is here |
 |---|---|
-| [`NOTES.md`](NOTES.md) | Working session notes |
+| [`internal/NOTES.md`](internal/NOTES.md) | Working session notes — retained for the record, not maintained |
 | [`STRESS_TEST_v0.3.0.md`](STRESS_TEST_v0.3.0.md) | A frozen testnet stress-test record |
 
 Generated reports and frozen stress-test records are retained for evidence

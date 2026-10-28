@@ -82,14 +82,14 @@ The README's Quickstart example uses `Journal` (from `audit.py`) — but `Journa
 - Session log: top entry here in `NOTES.md`
 - Code commits: each v0.3.3 item gets its own commit with conventional message
 - Snapshots: refresh `docs_snapshot_<date>/` at v0.3.3 release
-- Telegram: PDF of Quickstart + use-cases doc at release time
+- PDF of the Quickstart + use-cases doc, distributed at release time
 
 ### Progress (this entry)
 
 **Item #1 — USE_CASES.md ✅**
 - File: `docs/USE_CASES.md` (8.7 KB)
 - PDF: `xrpl_agent_id_USE_CASES.pdf` (270 KB, 5 pages) via `build_doc_pdf.py`
-- Telegram: sent to Home channel, msg 113280
+- Telegram: sent to the maintainer's channel
 - Commit: `44a59db` (USE_CASES.md) + `81c8cf1` (build_doc_pdf.py + .gitignore)
 
 **Refactor — `build_doc_pdf.py`**
@@ -112,7 +112,7 @@ The README's Quickstart example uses `Journal` (from `audit.py`) — but `Journa
 
 ### Setup decisions
 - **Wallet roles**:
-  - Subject (Agent): `rn3bppvwt7Qc15mQa7EFkbMWa2BjkAtV8X` (USER's existing testnet wallet)
+  - Subject (Agent): a testnet wallet address (not recorded here)
   - Issuer (Authority): `rMB3kkswgAu6bzJ6modhCF1xxDi6ugqFv4` (treasury wallet, acting as credentialing authority)
   - Same user holding both is acceptable for the demo because verification only requires reading the public ledger.
 

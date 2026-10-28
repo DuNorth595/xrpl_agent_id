@@ -18,7 +18,9 @@
 set -euo pipefail
 
 PORT="${1:-${PORT:-8768}}"
-PROJECT_DIR="${XRPL_AGENT_ID_DIR:-$HOME/Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID}"
+# The project directory. Defaults to the repository this script lives in,
+# so it works wherever the repository is checked out.
+PROJECT_DIR="${XRPL_AGENT_ID_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 PYTHON="${PYTHON:-/usr/bin/python3}"
 LOG_FILE="${LOG_FILE:-/tmp/xrpl_dashboard_${PORT}.log}"
 

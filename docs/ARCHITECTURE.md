@@ -782,7 +782,7 @@ xrpl_agent_id/
 │   ├── ARCHITECTURE.md           # this file (v0.3.2)
 │   ├── CHANGELOG.md              # version history (canonical)
 │   ├── CONTROLLER_BANNED_MULTISIG.md
-│   ├── NOTES.md
+│   ├── internal/            # retained session notes and run plans
 │   └── STRESS_TEST_v0.3.0.md     # canonical stress test report (§1-§12)
 ├── build_pdf.py                  # README → PDF
 ├── build_stress_pdf.py           # STRESS_TEST_v0.3.0.md → PDF

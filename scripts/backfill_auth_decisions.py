@@ -13,7 +13,7 @@ Pre-v0.3.2 rows have no ``decision_id`` (the column was added in v0.3.2)
 Run:
     /usr/bin/python3 scripts/backfill_auth_decisions.py \\
         --src results/audit_live_1790646795.db \\
-        --dst ~/Desktop/LIFE_MEMORY/PROJECTS/XRPL_AGENT_ID/xrpl_agent_id_dashboard.db
+        --dst ~/.xrpl_agent_id/dashboard.db
 """
 from __future__ import annotations
 

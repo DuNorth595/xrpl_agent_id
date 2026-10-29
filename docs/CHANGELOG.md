@@ -4,7 +4,9 @@ All notable changes to `xrpl_agent_id` are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.4] — 2026-10-29
+
+Housekeeping.
 
 ### Removed
 

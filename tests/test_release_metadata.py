@@ -44,25 +44,30 @@ def test_the_tag_matches_the_package_version():
 
     This is the check that was missing when v0.5.3 was tagged against a
     package still declaring 0.5.2.
+
+    This test never skips. A test that skips changes the suite's skipped
+    count depending on the environment, and the documented test count is
+    derived from that count -- so a self-skipping test makes the number in
+    the README depend on whether the tag happens to be present locally.
+    Instead, the tag is required to exist. It is created by the release
+    step, so on a commit that has not been released yet this test fails
+    loudly and is resolved by tagging.
     """
     import subprocess
 
     version = _module_version()
     tag = f"v{version}"
 
-    # The tag must exist upstream and point at a commit that carries this
-    # version. If the tag is missing, the release has not happened yet --
-    # which is not a failure of this codebase, so it is skipped.
     exists = subprocess.run(
         ["git", "tag", "--list", tag],
         cwd=ROOT,
         capture_output=True,
         text=True,
     )
-    if not exists.stdout.strip():
-        import pytest
-
-        pytest.skip(f"{tag} is not tagged yet")
+    assert exists.stdout.strip(), (
+        f"{tag} is not tagged, but the package declares {version}. "
+        "Tag the release, or the version is wrong."
+    )
 
     tagged = subprocess.run(
         ["git", "show", f"{tag}:xrpl_agent_id/__init__.py"],
@@ -70,10 +75,7 @@ def test_the_tag_matches_the_package_version():
         capture_output=True,
         text=True,
     )
-    if tagged.returncode != 0:
-        import pytest
-
-        pytest.skip(f"{tag} is not available locally")
+    assert tagged.returncode == 0, f"could not read {tag}"
 
     match = re.search(r'^__version__\s*=\s*"([^"]+)"', tagged.stdout, re.M)
     assert match, f"{tag} has no __version__"

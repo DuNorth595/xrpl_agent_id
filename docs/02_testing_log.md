@@ -41,7 +41,7 @@ RUN_LIVE=1 /usr/bin/python3 -m pytest tests/test_integration_ledger_live.py -v
 | 2026-10-28 16:00 | 385 | 6 | 391 | v0.5.2 — trust policy ergonomics: issuer-set grouping, issuer-agnostic require, str credential types, first-class ban rules, DID-form ban matching. |
 | 2026-10-28 14:20 | 361 | 6 | 366 | v0.5.1 — documented-count guards, harness funding guards, and the mainnet validation record. |
 
-Latest: **385 offline + 6 live = 391 passing**, 0 failures.
+Latest: **395 offline + 6 live = 391 passing**, 0 failures.
 
 **v0.5.1 (2026-10-28).** The CI matrix is **Python 3.10, 3.11, 3.12, and
 3.13** with `xrpl-py 5.2.0`. The suite grew from 347 to 367 collected

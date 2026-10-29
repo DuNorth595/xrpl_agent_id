@@ -308,6 +308,32 @@ class AgentIdentity:
         result = submit_with_retry(tx, client, self.provider)
         return (result or {}).get("hash", "")
 
+    def delete_did(self) -> str:
+        """Delete this agent's DID Document from the ledger via DIDDelete.
+
+        DIDDelete takes only the common transaction fields -- the target is
+        always the sender's own DID, so there is nothing to specify.
+
+        Deleting the DID Document does NOT delete the account's credentials.
+        The two are separate ledger objects: a DID is keyed by its owner
+        account, and a credential is keyed by (issuer, subject,
+        credential_type). rippled's DIDDelete erases only the DID object.
+        To withdraw an authorization, revoke the credential too.
+
+        If the account has no DID, the transaction fails with tecNO_ENTRY.
+
+        Returns the transaction hash.
+        """
+        from xrpl.models.transactions import DIDDelete
+
+        from xrpl_agent_id.network import get_client
+
+        tx = DIDDelete(account=self.address)
+        client = get_client(self.network)
+        result = submit_with_retry(tx, client, self.provider)
+        return (result or {}).get("hash", "")
+
+
     # ---- Verification ------------------------------------------------------
 
     def has_credential(

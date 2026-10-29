@@ -144,3 +144,55 @@ def test_did_document_size_warning():
     # Just demonstrate it exceeds the 256-byte on-ledger cap — callers
     # must put rich docs behind the URI field, not DIDDocument.
     assert len(serialized.encode("utf-8")) > 256
+
+
+def test_delete_did_submits_a_diddelete(monkeypatch):
+    """AgentIdentity.delete_did submits DIDDelete for its own account.
+
+    DIDDelete takes only common fields -- the target is always the
+    sender's own DID -- so there is nothing for the caller to specify.
+    """
+    from xrpl.models.transactions import DIDDelete
+
+    from xrpl_agent_id import identity as identity_module
+
+    class _Wallet:
+        address = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"
+
+        def __init__(self):
+            self.seed = "placeholder"
+
+    class _Provider:
+        classic_address = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"
+        public_key = "00" * 33
+
+    agent = identity_module.AgentIdentity(provider=_Provider(), network="testnet")
+
+    submitted = []
+
+    def _fake_submit(tx, client, provider):
+        submitted.append(tx)
+        return {"hash": "ABC123"}
+
+    monkeypatch.setattr(identity_module, "submit_with_retry", _fake_submit)
+    monkeypatch.setattr(
+        "xrpl_agent_id.network.get_client", lambda network: object(), raising=False
+    )
+
+    tx_hash = agent.delete_did()
+
+    assert tx_hash == "ABC123"
+    assert len(submitted) == 1
+    tx = submitted[0]
+    assert isinstance(tx, DIDDelete)
+    assert tx.account == _Wallet.address
+
+
+def test_delete_did_docstring_states_credentials_survive():
+    """The docstring must say the obvious-but-surprising part: deleting a
+    DID does not delete the account's credentials."""
+    from xrpl_agent_id import AgentIdentity
+
+    doc = AgentIdentity.delete_did.__doc__ or ""
+    assert "credential" in doc.lower()
+    assert "not" in doc.lower()

@@ -6,7 +6,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **`AgentIdentity.delete_did()`** — delete this agent's DID Document from
+  the ledger via `DIDDelete`, and return the transaction hash. `DIDDelete`
+  takes only the common transaction fields; the target is always the
+  sender's own DID, so there is nothing for the caller to specify.
+
+  Deleting the DID Document does **not** delete the account's credentials.
+  The two are separate ledger objects: a DID is keyed by its owner
+  account, and a credential by (issuer, subject, credential_type).
+  rippled's `DIDDelete` erases only the DID object. To withdraw an
+  authorization, revoke the credential too.
+
+  If the account has no DID, the transaction fails with `tecNO_ENTRY`.
+
+
 
 ## [0.5.2] - 2026-10-28
 

@@ -6,7 +6,22 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Removed
+
+- **The `contrib/xrpl-identity-skill` branch.** It held the XRPL Identity
+  domain skill as a draft, but the upstream pull request was opened from a
+  separate `xrpl-dev-portal` fork, so the branch here served no purpose
+  beyond sitting on a public remote. It had also fallen behind `main` — it
+  predated `AgentIdentity.delete_did()` and the release-metadata tests.
+
+  One of its commits carried a seed-shaped string in a test fixture. The
+  fixture was already rewritten on `main` to build the value from fragments
+  at runtime, but the old blob was still fetchable from GitHub by its SHA
+  while it remained unreferenced. Removing the branch and repacking the
+  repository drops it.
+
+  Nothing on `main` was affected: a fresh mirror clone of the repository
+  contains no seed-shaped literal in any reachable object.
 
 ## [0.5.3] - 2026-10-28
 ### Added

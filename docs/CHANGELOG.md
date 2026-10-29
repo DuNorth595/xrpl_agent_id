@@ -6,6 +6,9 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.5.3] - 2026-10-28
 ### Added
 
 - **`AgentIdentity.delete_did()`** — delete this agent's DID Document from
@@ -20,7 +23,6 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   authorization, revoke the credential too.
 
   If the account has no DID, the transaction fails with `tecNO_ENTRY`.
-
 
 
 ## [0.5.2] - 2026-10-28
@@ -445,3 +447,4 @@ Full disclosure and reasoning: `docs/03_known_issues.md`.
 ## [0.2.4]
 
 ## [0.2.0]
+[0.5.3]: https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.5.3

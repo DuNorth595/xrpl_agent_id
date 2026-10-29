@@ -33,7 +33,7 @@ A small Python library that gives an AI agent an XRPL-native identity:
 OIDC/SAML. Credentials on XRPL are public. Bring your own keys — use
 `xrpl-py`'s `Wallet`.
 
-**Status:** v0.5.2, MIT, mainnet-validated. The credential lifecycle was
+**Status:** v0.5.3, MIT, mainnet-validated. The credential lifecycle was
 verified against XRPL mainnet on 2026-10-28 — see
 [Mainnet readiness](#mainnet-readiness).
 
@@ -105,7 +105,7 @@ to do next.
 
 ```bash
 # not on PyPI yet -- install from GitHub
-pip install "xrpl-agent-id @ git+https://github.com/DuNorth595/xrpl_agent_id.git@v0.5.2"
+pip install "xrpl-agent-id @ git+https://github.com/DuNorth595/xrpl_agent_id.git@v0.5.3"
 python examples/01_create_did.py
 ```
 
@@ -590,10 +590,10 @@ solving a different problem.
 
 ```
 $ python -m pytest tests/ -q
-395 passed, 6 skipped
+399 passed, 6 skipped
 ```
 
-*(Verified against v0.5.2 on 2026-10-28.)*
+*(Verified against v0.5.3 on 2026-10-28.)*
 
 Every ledger interaction is mocked in the offline suite, so CI never needs
 testnet access. The live testnet path is opt-in and documented above.
@@ -619,6 +619,7 @@ testnet access. The live testnet path is opt-in and documented above.
 
 | Version | Date | Highlights |
 |---|---|---|
+| [v0.5.3](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.5.3) | 2026-10-28 | **`AgentIdentity.delete_did()`** — delete an agent's DID Document from the ledger. Deleting a DID does not delete the account's credentials; the two are separate ledger objects. |
 | [v0.5.2](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.5.2) | 2026-10-28 | Documentation accuracy: the API contract, the security policy, and the mainnet gate all corrected. No change to the public API. |
 | [v0.5.0](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.5.0) | 2026-10-28 | **`WalletProvider`** — sign XRPL transactions without holding the key (KMS/HSM/hardware wallet); **fee ceiling** (`max_fee_drops`) so a transaction is never signed into a congestion premium; **batch anchoring** — one transaction per 1,000 decisions via a Merkle root; Python floor raised to 3.10 with `xrpl-py>=5.0,<6` pinned |
 | [v0.4.3](https://github.com/DuNorth595/xrpl_agent_id/releases/tag/v0.4.3) | 2026-10-23 | Security fixes: credential acceptance (`lsfAccepted`) is now read from the raw ledger node and fails closed; credential expiry is checked on the real path; DID validation hardened; ban list; dashboard verification |

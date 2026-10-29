@@ -42,7 +42,7 @@ from xrpl_agent_id.tx_submit import (
     max_fee_drops_for_usd,
 )
 
-__version__ = "0.5.2"
+__version__ = "0.5.3"
 XRPL_AGENT_ID_VERSION = __version__  # canonical alias — referenced in docs/tests
 
 # The source literal above is authoritative. It is the version of the code
